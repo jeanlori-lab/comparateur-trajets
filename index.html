@@ -457,8 +457,8 @@
     <div class="res-head" id="resHead">—</div>
     <div class="res-sub" id="resSub">—</div>
     <div class="ar-toggle" id="arToggle">
-      <button type="button" class="ar-toggle-btn" data-mode="simple" onclick="setResultMode('simple')">Aller simple</button>
-      <button type="button" class="ar-toggle-btn active" data-mode="ar" onclick="setResultMode('ar')">Aller-retour</button>
+      <button type="button" class="ar-toggle-btn active" data-mode="simple" onclick="setResultMode('simple')">Aller simple</button>
+      <button type="button" class="ar-toggle-btn" data-mode="ar" onclick="setResultMode('ar')">Aller-retour</button>
     </div>
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
@@ -906,7 +906,7 @@ const COMFORT_TRAIN = 4.6, COMFORT_PLANE = 2.4;
 // l'aller, mais on préfère cette estimation transparente à une fausse
 // précision). Les durées de trajet restent celles d'un aller (un AR ne
 // se fait pas d'une traite).
-let resultMode = 'ar'; // 'simple' | 'ar'
+let resultMode = 'simple'; // 'simple' | 'ar'
 function setResultMode(mode) {
   resultMode = mode;
   document.querySelectorAll('.ar-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
