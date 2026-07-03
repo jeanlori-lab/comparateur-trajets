@@ -47,7 +47,7 @@
       color: #1a2433;
     }
 
-    .field { margin-bottom: 12px; }
+    .field { margin-bottom: 12px; position: relative; }
     .field label {
       display: block;
       font-size: 12.5px;
@@ -70,6 +70,47 @@
     input:focus, select:focus { border-color: #2196f3; box-shadow: 0 0 0 3px rgba(33,150,243,0.12); }
 
     .autocomplete-wrap { position: relative; }
+    .autocomplete-wrap input.place-input { padding-right: 36px; }
+    /* Étoile favori : lieu de départ/arrivée mémorisé, superposée dans l'encadré. */
+    .fav-star {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px; height: 24px;
+      padding: 0;
+      border: none;
+      background: none;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      color: #b6c0cb;
+      z-index: 3;
+      transition: color 0.15s, transform 0.1s;
+    }
+    .fav-star:hover { color: #f0c419; }
+    .fav-star.active { color: #ffc107; }
+    .fav-star:active { transform: translateY(-50%) scale(0.85); }
+    .fav-hint {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 4px;
+      background: #1a2433;
+      color: #fff;
+      font-size: 11px;
+      line-height: 1.3;
+      padding: 6px 10px;
+      border-radius: 8px;
+      max-width: 220px;
+      text-align: center;
+      z-index: 1001;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+    .fav-hint.show { opacity: 1; transform: translateY(0); }
     .autocomplete-list {
       position: absolute;
       top: calc(100% + 4px);
@@ -305,14 +346,16 @@
       <div class="field">
         <label>Départ</label>
         <div class="autocomplete-wrap">
-          <input type="text" id="depart" placeholder="Ville ou adresse de départ" autocomplete="off" oninput="onPlaceInput(this)">
+          <input type="text" id="depart" class="place-input" placeholder="Ville ou adresse de départ" autocomplete="off" oninput="onPlaceInput(this)">
+          <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
           <div class="autocomplete-list"></div>
         </div>
       </div>
       <div class="field">
         <label>Arrivée</label>
         <div class="autocomplete-wrap">
-          <input type="text" id="arrivee" placeholder="Ville ou adresse d'arrivée" autocomplete="off" oninput="onPlaceInput(this)">
+          <input type="text" id="arrivee" class="place-input" placeholder="Ville ou adresse d'arrivée" autocomplete="off" oninput="onPlaceInput(this)">
+          <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
           <div class="autocomplete-list"></div>
         </div>
       </div>
@@ -413,11 +456,89 @@ function photonLabel(p) {
   return parts.filter(Boolean).join(', ');
 }
 
+// ---------- Lieux favoris (départ/arrivée) ----------
+// Mémorisés dans le navigateur, proposés en premier dans l'autocomplétion
+// dès qu'on clique dans un champ vide (avant même d'avoir tapé un caractère).
+const FAV_PLACES_KEY = 'kikouteFavPlaces';
+const FAV_PLACES_MAX = 30;
+function getFavPlaces() {
+  try { return JSON.parse(localStorage.getItem(FAV_PLACES_KEY) || '[]'); } catch (e) { return []; }
+}
+function setFavPlaces(arr) {
+  try { localStorage.setItem(FAV_PLACES_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+function isFavPlace(text) {
+  const key = text.trim().toLowerCase();
+  if (!key) return false;
+  return getFavPlaces().some(f => f.trim().toLowerCase() === key);
+}
+function updateStarUI(star, active) {
+  star.classList.toggle('active', active);
+  star.textContent = active ? '★' : '☆';
+  star.title = active ? 'Retirer des favoris' : 'Enregistrer en favori';
+}
+function syncStarForInput(input) {
+  const row = input.closest('.field');
+  const star = row && row.querySelector('.fav-star');
+  if (star) updateStarUI(star, isFavPlace(input.value));
+}
+function showFavHint(star) {
+  const row = star.closest('.field');
+  if (!row) return;
+  const hint = document.createElement('div');
+  hint.className = 'fav-hint';
+  hint.textContent = 'Enregistré ! Retrouvez vos favoris en cliquant dans un champ vide.';
+  row.appendChild(hint);
+  requestAnimationFrame(() => hint.classList.add('show'));
+  setTimeout(() => {
+    hint.classList.remove('show');
+    setTimeout(() => hint.remove(), 250);
+  }, 2600);
+}
+function toggleFavPlace(text, star) {
+  const val = text.trim();
+  if (!val) return;
+  const key = val.toLowerCase();
+  let favs = getFavPlaces();
+  const idx = favs.findIndex(f => f.trim().toLowerCase() === key);
+  let added;
+  if (idx >= 0) { favs.splice(idx, 1); added = false; }
+  else { favs = [val, ...favs].slice(0, FAV_PLACES_MAX); added = true; }
+  setFavPlaces(favs);
+  updateStarUI(star, added);
+  if (added) showFavHint(star);
+}
+function showFavoritesIfEmpty(input) {
+  if (input.value.trim().length > 0) return;
+  const list = input.parentElement.querySelector('.autocomplete-list');
+  if (!list) return;
+  const favs = getFavPlaces();
+  if (!favs.length) { list.style.display = 'none'; return; }
+  list.innerHTML = '';
+  favs.slice(0, 6).forEach(label => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    div.textContent = '★ ' + label;
+    div.addEventListener('mousedown', e => {
+      e.preventDefault();
+      input.value = label;
+      input.dataset.lat = ''; input.dataset.lng = ''; input.dataset.city = '';
+      list.style.display = 'none';
+      hideResults();
+      syncStarForInput(input);
+    });
+    list.appendChild(div);
+  });
+  list.style.display = 'block';
+}
+
 function onPlaceInput(input) {
   const list = input.parentElement.querySelector('.autocomplete-list');
   const val = input.value.trim();
   input.dataset.lat = ''; input.dataset.lng = '';
   clearTimeout(autoTimers.get(input));
+  syncStarForInput(input);
+  if (val.length === 0) { showFavoritesIfEmpty(input); return; }
   if (val.length < 3) { list.style.display = 'none'; return; }
   autoTimers.set(input, setTimeout(async () => {
     try {
@@ -448,6 +569,7 @@ function onPlaceInput(input) {
             input.dataset.city = f.properties.city || f.properties.name || '';
             list.style.display = 'none';
             hideResults();
+            syncStarForInput(input);
           });
           list.appendChild(div);
         });
@@ -459,6 +581,15 @@ document.addEventListener('click', e => {
   document.querySelectorAll('.autocomplete-list').forEach(l => {
     if (!l.parentElement.contains(e.target)) l.style.display = 'none';
   });
+});
+document.querySelectorAll('.fav-star').forEach(star => {
+  star.addEventListener('click', () => {
+    const input = star.closest('.field').querySelector('input.place-input');
+    toggleFavPlace(input.value, star);
+  });
+});
+document.querySelectorAll('input.place-input').forEach(input => {
+  input.addEventListener('focus', () => showFavoritesIfEmpty(input));
 });
 
 async function geocode(input) {
@@ -542,6 +673,7 @@ function swapPlaces() {
   ['lat', 'lng', 'city'].forEach(k => {
     const tmp = a.dataset[k]; a.dataset[k] = b.dataset[k] || ''; b.dataset[k] = tmp || '';
   });
+  syncStarForInput(a); syncStarForInput(b);
   hideResults();
 }
 
