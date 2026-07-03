@@ -477,7 +477,7 @@
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
-      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute) ; le coût complet inclut usure, entretien et décote (barème kilométrique). Train &amp; avion : fourchettes estimées à vérifier via les liens (prix réels bientôt). Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
+      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train &amp; avion : fourchettes estimées à vérifier via les liens (prix réels bientôt). Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
     </div>
   </div>
 
@@ -890,7 +890,6 @@ async function comparer() {
     const motorwayShare = route.distKm > 80 ? 0.72 : 0.15;
     const carToll = route.distKm * motorwayShare * 0.092;
     const carVehicule = carFuel + carToll;
-    const carFull = route.distKm * 0.60 + carToll; // barème km (usure, entretien, décote incl. carburant)
     const carCO2vehicule = route.distKm * (isElec ? 0.103 : 0.218);
 
     // --- Train ---
@@ -929,7 +928,7 @@ async function comparer() {
     const covoitPP = Math.max(5, route.distKm * 0.065);
     const covoitCO2 = route.distKm * 0.218 / 3;
 
-    lastData = { from, to, route, crowKm, isElec, carFuel, carToll, carVehicule, carFull, carCO2vehicule, train, trainDoorH, trainCO2, plane, covoitPP, covoitCO2 };
+    lastData = { from, to, route, crowKm, isElec, carFuel, carToll, carVehicule, carCO2vehicule, train, trainDoorH, trainCO2, plane, covoitPP, covoitCO2 };
     renderResults();
   } catch (e) {
     showError('⚠️ ' + (e.message || 'Erreur inattendue'));
@@ -966,7 +965,7 @@ function renderResults() {
   options.push({
     id: 'voiture', ico: '🚗', name: d.isElec ? 'Ta voiture (électrique)' : 'Ta voiture',
     pp: d.carVehicule / pax * arMult, ppLabel: fmtEur(d.carVehicule / pax * arMult),
-    tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax + ' · coût complet (total voiture, usure incluse) ' + fmtEur(d.carFull * arMult) + ' soit ' + fmtEur(d.carFull * arMult / pax) + '/pers.',
+    tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax,
     doorH: d.route.dureeH,
     meta: fmtH(d.route.dureeH) + ' porte à porte (aller) · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel * arMult) + ' + péages ≈ ' + fmtEur(d.carToll * arMult),
     co2: d.carCO2vehicule / pax * arMult,
