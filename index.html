@@ -6,6 +6,13 @@
   <title>Kikoute — voiture, train, avion ou covoit ?</title>
   <meta name="description" content="Ce que ton trajet coûte vraiment, porte à porte : voiture, train, avion ou covoiturage, en € et en CO₂.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+  <!-- PWA : installable sur l'écran d'accueil -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1976d2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kikoute">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9Ijk2IiBmaWxsPSIjMTk3NmQyIi8+PHRleHQgeD0iNTAlIiB5PSI1OCUiIGZvbnQtc2l6ZT0iMjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7impbvuI88L3RleHQ+PC9zdmc+Cg==">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -309,6 +316,33 @@
     }
     .mode-cta:hover { text-decoration: underline; }
 
+    .ar-toggle {
+      display: flex;
+      background: #eef2f6;
+      border-radius: 999px;
+      padding: 3px;
+      margin: 8px 0 4px;
+    }
+    .ar-toggle-btn {
+      flex: 1;
+      text-align: center;
+      padding: 7px 0;
+      font-size: 12.5px;
+      font-weight: 700;
+      border-radius: 999px;
+      cursor: pointer;
+      color: #607080;
+      background: none;
+      border: none;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .ar-toggle-btn.active {
+      background: #2196f3;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(33,150,243,0.35);
+    }
+
     .why-note {
       font-size: 11px;
       color: #607080;
@@ -422,6 +456,10 @@
   <div class="card results" id="results">
     <div class="res-head" id="resHead">—</div>
     <div class="res-sub" id="resSub">—</div>
+    <div class="ar-toggle" id="arToggle">
+      <button type="button" class="ar-toggle-btn" data-mode="simple" onclick="setResultMode('simple')">Aller simple</button>
+      <button type="button" class="ar-toggle-btn active" data-mode="ar" onclick="setResultMode('ar')">Aller-retour</button>
+    </div>
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
@@ -862,55 +900,72 @@ function comfortCar(h)   { return Math.max(1.3, 4.2 - h * 0.22); }
 function comfortCovoit(h){ return Math.max(1.2, 3.0 - h * 0.12); }
 const COMFORT_TRAIN = 4.6, COMFORT_PLANE = 2.4;
 
+// ---------- Aller simple / Aller-retour ----------
+// Le prix et le CO2 doublent pour un aller-retour (approximation : en
+// pratique un billet AR train/avion n'est pas toujours exactement 2x
+// l'aller, mais on préfère cette estimation transparente à une fausse
+// précision). Les durées de trajet restent celles d'un aller (un AR ne
+// se fait pas d'une traite).
+let resultMode = 'ar'; // 'simple' | 'ar'
+function setResultMode(mode) {
+  resultMode = mode;
+  document.querySelectorAll('.ar-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (lastData) renderResults();
+}
+
 function renderResults() {
   const d = lastData;
   const w = POIDS[priorite];
+  const arMult = resultMode === 'ar' ? 2 : 1;
+  const arSuffix = resultMode === 'ar' ? ' (aller-retour)' : ' (aller simple)';
 
   const options = [];
   options.push({
     id: 'voiture', ico: '🚗', name: d.isElec ? 'Ta voiture (électrique)' : 'Ta voiture',
-    pp: d.carVehicule / pax, ppLabel: fmtEur(d.carVehicule / pax),
-    tot: fmtEur(d.carVehicule) + ' à ' + pax + ' · coût complet ' + fmtEur(d.carFull),
+    pp: d.carVehicule / pax * arMult, ppLabel: fmtEur(d.carVehicule / pax * arMult),
+    tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax + ' · coût complet ' + fmtEur(d.carFull * arMult),
     doorH: d.route.dureeH,
-    meta: fmtH(d.route.dureeH) + ' porte à porte · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel) + ' + péages ≈ ' + fmtEur(d.carToll),
-    co2: d.carCO2vehicule / pax,
+    meta: fmtH(d.route.dureeH) + ' porte à porte (aller) · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel * arMult) + ' + péages ≈ ' + fmtEur(d.carToll * arMult),
+    co2: d.carCO2vehicule / pax * arMult,
     confort: comfortCar(d.route.dureeH),
-    cta: null,
+    cta: { txt: 'Voir l\'itinéraire sur Maps ›', url: 'https://www.google.com/maps/dir/?api=1&origin=' + d.from.lat + ',' + d.from.lng + '&destination=' + d.to.lat + ',' + d.to.lng + '&travelmode=driving' },
   });
   options.push({
     id: 'train', ico: '🚄', name: 'Train',
-    pp: (d.train.pMin + d.train.pMax) / 2, ppLabel: fmtEurRange(d.train.pMin, d.train.pMax) ,
-    tot: (d.train.source === 'estimation' ? 'estimation · ' : '') + fmtEurRange(d.train.pMin * pax, d.train.pMax * pax) + ' à ' + pax,
+    pp: (d.train.pMin + d.train.pMax) / 2 * arMult, ppLabel: fmtEurRange(d.train.pMin * arMult, d.train.pMax * arMult),
+    tot: (d.train.source === 'estimation' ? 'estimation · ' : '') + fmtEurRange(d.train.pMin * pax * arMult, d.train.pMax * pax * arMult) + ' à ' + pax,
     doorH: d.trainDoorH,
-    meta: fmtH(d.train.hRail) + ' de train · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
-    co2: d.trainCO2,
+    meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
+    co2: d.trainCO2 * arMult,
     confort: COMFORT_TRAIN,
     cta: { txt: 'Prix réels SNCF Connect ›', url: 'https://www.sncf-connect.com/train/horaires/' + citySlug(d.from.city) + '/' + citySlug(d.to.city) },
   });
   if (d.plane) {
     options.push({
       id: 'avion', ico: '✈️', name: 'Avion',
-      pp: (d.plane.pMin + d.plane.pMax) / 2, ppLabel: fmtEurRange(d.plane.pMin, d.plane.pMax),
+      pp: (d.plane.pMin + d.plane.pMax) / 2 * arMult, ppLabel: fmtEurRange(d.plane.pMin * arMult, d.plane.pMax * arMult),
       tot: 'estimation, hors bagages',
       doorH: d.plane.doorH,
-      meta: 'Vol ' + fmtH(d.plane.volH) + ' · ≈ ' + fmtH(d.plane.doorH) + ' porte à porte (navettes + 2h aéroport)',
-      co2: d.plane.co2,
+      meta: 'Vol ' + fmtH(d.plane.volH) + ' (aller) · ≈ ' + fmtH(d.plane.doorH) + ' porte à porte (navettes + 2h aéroport)',
+      co2: d.plane.co2 * arMult,
       confort: COMFORT_PLANE,
       cta: { txt: 'Voir les vols ›', url: 'https://www.google.com/travel/flights?q=' + encodeURIComponent('vols de ' + d.from.city + ' à ' + d.to.city + (dateChoisie() ? ' le ' + dateFr() : '')) },
     });
   }
   options.push({
     id: 'covoit', ico: '🚗💨', name: 'Covoiturage',
-    pp: d.covoitPP, ppLabel: '≈ ' + fmtEur(d.covoitPP),
-    tot: '≈ ' + fmtEur(d.covoitPP * pax) + ' à ' + pax,
+    pp: d.covoitPP * arMult, ppLabel: '≈ ' + fmtEur(d.covoitPP * arMult),
+    tot: '≈ ' + fmtEur(d.covoitPP * pax * arMult) + ' à ' + pax,
     doorH: d.route.dureeH + 0.4,
-    meta: '≈ ' + fmtH(d.route.dureeH + 0.4) + ' porte à porte · selon les annonces',
-    co2: d.covoitCO2,
+    meta: '≈ ' + fmtH(d.route.dureeH + 0.4) + ' porte à porte (aller) · selon les annonces',
+    co2: d.covoitCO2 * arMult,
     confort: comfortCovoit(d.route.dureeH),
     cta: { txt: 'Voir sur Blablacar ›', url: 'https://www.blablacar.fr/search?fn=' + encodeURIComponent(d.from.city) + '&tn=' + encodeURIComponent(d.to.city) + (dateChoisie() ? '&db=' + encodeURIComponent(dateFr()) : '') },
   });
 
   // Score pondéré : ratio au meilleur sur chaque critère (1 = meilleur).
+  // Le prix étant multiplié par le même facteur arMult sur toutes les
+  // options, le ratio (donc le classement) ne dépend pas du mode simple/AR.
   const minPP = Math.min(...options.map(o => o.pp));
   const minH  = Math.min(...options.map(o => o.doorH));
   options.forEach(o => {
@@ -921,7 +976,7 @@ function renderResults() {
   // Rendu
   document.getElementById('resHead').textContent = d.from.city + ' → ' + d.to.city;
   document.getElementById('resSub').textContent =
-    Math.round(d.route.distKm).toLocaleString('fr-FR') + ' km par la route · ' + pax + ' voyageur' + (pax > 1 ? 's' : '');
+    Math.round(d.route.distKm).toLocaleString('fr-FR') + ' km par la route' + arSuffix + ' · ' + pax + ' voyageur' + (pax > 1 ? 's' : '');
   document.getElementById('whyNote').innerHTML = 'Classement selon ta priorité : <b>' + PRIO_LABELS[priorite] + '</b>';
 
   const wrap = document.getElementById('modeCards');
@@ -963,6 +1018,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') comparer(); }
   d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
   document.getElementById('dateTrajet').value = d.toISOString().slice(0, 10);
 })();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
