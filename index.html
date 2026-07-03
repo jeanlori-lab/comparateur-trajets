@@ -741,17 +741,18 @@ function swapPlaces() {
   hideResults();
 }
 
-// Centre le bouton d'inversion exactement sur la jonction départ/arrivée :
-// les deux champs (label + input) n'ont pas la même hauteur totale que le
-// conteneur, donc un simple top:50% en CSS tombe trop haut.
+// Centre le bouton d'inversion exactement sur la jonction des deux boîtes de
+// saisie (pas des champs entiers, qui incluent le label au-dessus) : sinon le
+// bouton flotte trop haut, contre le label "Arrivée" plutôt qu'entre les deux
+// cadres.
 function positionSwapBtn() {
   const wrap = document.querySelector('.points-wrap');
-  const depField = document.getElementById('depart').closest('.field');
-  const arrField = document.getElementById('arrivee').closest('.field');
+  const depInput = document.getElementById('depart');
+  const arrInput = document.getElementById('arrivee');
   const btn = document.getElementById('swapBtn');
-  if (!wrap || !depField || !arrField || !btn) return;
+  if (!wrap || !depInput || !arrInput || !btn) return;
   const wrapTop = wrap.getBoundingClientRect().top;
-  const seam = (depField.getBoundingClientRect().bottom + arrField.getBoundingClientRect().top) / 2;
+  const seam = (depInput.getBoundingClientRect().bottom + arrInput.getBoundingClientRect().top) / 2;
   btn.style.top = (seam - wrapTop) + 'px';
 }
 positionSwapBtn();
