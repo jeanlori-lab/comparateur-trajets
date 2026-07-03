@@ -546,32 +546,66 @@ function swapPlaces() {
 }
 
 // ---------- Table de liaisons train connues (temps réels, prix typiques) ----------
-// Clé : villes normalisées triées. [heures de train, prix min, prix max]
+// Clé : villes normalisées triées alphabétiquement. [heures de train, prix min, prix max]
 const TRAIN_PAIRS = {
+  // Depuis Paris (TGV/Intercités)
   'lyon|paris': [2.0, 25, 95],       'marseille|paris': [3.2, 35, 120],
   'bordeaux|paris': [2.2, 30, 110],  'nantes|paris': [2.2, 25, 90],
   'lille|paris': [1.1, 20, 70],      'paris|strasbourg': [1.8, 30, 100],
   'paris|toulouse': [4.3, 40, 130],  'nice|paris': [6.0, 45, 140],
   'paris|rennes': [1.5, 25, 85],     'montpellier|paris': [3.4, 35, 120],
-  'lyon|marseille': [1.7, 20, 70],   'barcelone|paris': [6.8, 59, 149],
-  'londres|paris': [2.3, 55, 180],   'bruxelles|paris': [1.4, 29, 99],
-  'amsterdam|paris': [3.3, 40, 140], 'genève|paris': [3.1, 35, 110],
-  'milan|paris': [7.0, 50, 130],     'francfort-sur-le-main|paris': [3.8, 40, 130],
-  'barcelone|lyon': [5.0, 40, 110],  'marseille|nice': [2.5, 15, 45],
-  'bordeaux|toulouse': [2.1, 15, 45],'lyon|montpellier': [1.8, 20, 60],
-  'nantes|rennes': [1.4, 12, 35],    'lille|londres': [1.4, 50, 160],
-  'bruxelles|lille': [0.6, 15, 45],  'paris|zurich': [4.1, 40, 130],
+  'dijon|paris': [1.6, 25, 75],      'nancy|paris': [1.5, 25, 75],
+  'paris|reims': [0.75, 18, 55],     'le mans|paris': [1.0, 18, 60],
+  'paris|tours': [1.2, 20, 65],      'angers|paris': [1.5, 20, 70],
+  'paris|poitiers': [1.7, 22, 75],   'clermont-ferrand|paris': [3.3, 30, 90],
+  'grenoble|paris': [3.1, 35, 100],  'annecy|paris': [3.7, 35, 105],
+  'paris|perpignan': [5.0, 45, 130], 'biarritz|paris': [4.0, 40, 120],
+  'avignon|paris': [2.6, 30, 100],   'nimes|paris': [3.0, 30, 100],
+  'paris|toulon': [3.7, 35, 115],    'brest|paris': [3.2, 35, 100],
+
+  // France, hors Paris
+  'lyon|marseille': [1.7, 20, 70],   'bordeaux|toulouse': [2.1, 15, 45],
+  'lyon|montpellier': [1.8, 20, 60], 'nantes|rennes': [1.4, 12, 35],
+  'bruxelles|lille': [0.6, 15, 45],  'bordeaux|nantes': [2.0, 20, 65],
+  'brest|rennes': [1.6, 15, 45],     'marseille|toulouse': [3.9, 35, 110],
+  'lille|lyon': [3.0, 35, 100],      'lille|strasbourg': [3.5, 35, 100],
+  'lyon|strasbourg': [3.9, 40, 100],
+
+  // Europe
+  'barcelone|paris': [6.8, 59, 149], 'londres|paris': [2.3, 55, 180],
+  'bruxelles|paris': [1.4, 29, 99],  'amsterdam|paris': [3.3, 40, 140],
+  'genève|paris': [3.1, 35, 110],    'milan|paris': [7.0, 50, 130],
+  'francfort-sur-le-main|paris': [3.8, 40, 130], 'paris|zurich': [4.1, 40, 130],
   'madrid|paris': [10.5, 80, 200],   'munich|paris': [5.8, 50, 150],
+  'barcelone|lyon': [5.0, 40, 110],  'marseille|nice': [2.5, 15, 45],
+  'lille|londres': [1.4, 50, 160],   'genève|lyon': [1.8, 25, 60],
+  'lyon|milan': [4.9, 40, 100],      'francfort-sur-le-main|strasbourg': [1.8, 25, 65],
+  'bale|strasbourg': [1.2, 18, 50],  'barcelone|toulouse': [3.0, 30, 90],
+  'barcelone|madrid': [2.6, 25, 85], 'amsterdam|bruxelles': [1.9, 25, 70],
+  'bruxelles|londres': [1.9, 55, 170], 'amsterdam|londres': [3.9, 60, 190],
+  'bruxelles|cologne': [1.9, 30, 80], 'amsterdam|cologne': [2.8, 30, 90],
+  'munich|zurich': [3.6, 35, 100],   'bale|zurich': [1.0, 15, 40],
+  'milan|zurich': [3.5, 35, 90],
 };
 function normCity(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
+// Découpe en mots (>=3 lettres) pour comparer par mot entier plutôt que par
+// sous-chaîne brute : évite les faux positifs du type "Valence" (Drôme) qui
+// matcherait "Valencia" (Espagne) avec un simple includes().
+function cityTokens(s) {
+  return normCity(s).split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+}
+function sameCity(a, b) {
+  const na = normCity(a), nb = normCity(b);
+  if (na === nb) return true;
+  const ta = cityTokens(a);
+  return ta.length > 0 && cityTokens(b).some(w => ta.includes(w));
+}
 function lookupTrainPair(cityA, cityB) {
-  const a = normCity(cityA), b = normCity(cityB);
   for (const key of Object.keys(TRAIN_PAIRS)) {
-    const [x, y] = key.split('|').map(normCity);
-    if ((a.includes(x) || x.includes(a)) && (b.includes(y) || y.includes(b))) return TRAIN_PAIRS[key];
-    if ((a.includes(y) || y.includes(a)) && (b.includes(x) || x.includes(b))) return TRAIN_PAIRS[key];
+    const [x, y] = key.split('|');
+    if ((sameCity(cityA, x) && sameCity(cityB, y)) || (sameCity(cityA, y) && sameCity(cityB, x))) return TRAIN_PAIRS[key];
   }
   return null;
 }
