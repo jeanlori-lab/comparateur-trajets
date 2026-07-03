@@ -145,8 +145,8 @@
       position: absolute;
       z-index: 25;
       right: 10px;
-      top: 50%;
-      transform: translateY(calc(-50% + 5px));
+      top: 50%; /* valeur de repli ; repositionné précisément en JS (positionSwapBtn) */
+      transform: translateY(-50%);
       width: 28px; height: 28px;
       padding: 0;
       border: 1.5px solid #dbe3ec;
@@ -163,15 +163,17 @@
       transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
     }
     .swap-btn:hover { background: #eef6ff; box-shadow: 0 0 0 3px rgba(33,150,243,0.10); }
-    .swap-btn:active { transform: translateY(calc(-50% + 5px)) scale(0.9); }
+    .swap-btn:active { transform: translateY(-50%) scale(0.9); }
 
     .two-cols { display: flex; gap: 10px; }
-    .two-cols .field { flex: 1; }
+    .two-cols .field { flex: 1; min-width: 0; }
 
-    /* Voyageurs */
-    .pax-line { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 4px 0; }
-    .pax-btn {
-      width: 34px; height: 34px;
+    /* Voyageurs / conso : compteurs +/- partagés */
+    .field-center label { text-align: center; }
+    .stepper-line { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 4px 0; }
+    .stepper-btn {
+      width: 32px; height: 32px;
+      flex-shrink: 0;
       border-radius: 10px;
       border: 1.5px solid #dbe3ec;
       background: #fff;
@@ -181,9 +183,18 @@
       color: #1976d2;
       font-family: inherit;
     }
-    .pax-btn:hover { background: #eef6ff; }
+    .stepper-btn:hover { background: #eef6ff; }
     .pax-val { font-size: 17px; font-weight: 800; min-width: 1.5ch; text-align: center; }
-    .pax-lbl { text-align: center; font-size: 11px; color: #90a4ae; margin-top: 2px; }
+    .stepper-line input[type="number"] {
+      width: 6.5ch;
+      flex: 0 1 auto;
+      text-align: center;
+      padding: 8px 2px;
+    }
+    @media (max-width: 380px) {
+      .stepper-line { gap: 8px; }
+      .stepper-btn { width: 28px; height: 28px; font-size: 16px; }
+    }
 
     /* Priorité */
     .prio-chips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -401,12 +412,12 @@
         <label>Date (indicatif)</label>
         <input type="date" id="dateTrajet">
       </div>
-      <div class="field">
+      <div class="field field-center">
         <label>Voyageurs</label>
-        <div class="pax-line">
-          <button type="button" class="pax-btn" id="paxMinus">−</button>
-          <div><div class="pax-val" id="paxVal">2</div></div>
-          <button type="button" class="pax-btn" id="paxPlus">+</button>
+        <div class="stepper-line">
+          <button type="button" class="stepper-btn" id="paxMinus" aria-label="Moins de voyageurs">−</button>
+          <div class="pax-val" id="paxVal">2</div>
+          <button type="button" class="stepper-btn" id="paxPlus" aria-label="Plus de voyageurs">+</button>
         </div>
       </div>
     </div>
@@ -430,18 +441,21 @@
         <div class="field">
           <label>Carburant</label>
           <select id="carburant" onchange="onCarburantChange()">
-            <option value="gazole_prix">Gazole</option>
-            <option value="sp95_prix" selected>Sans plomb 95</option>
-            <option value="e10_prix">SP95 E10</option>
+            <option value="e10_prix" selected>Sans plomb 95</option>
             <option value="sp98_prix">Sans plomb 98</option>
-            <option value="e85_prix">E85</option>
-            <option value="gplc_prix">GPL</option>
+            <option value="gazole_prix">Gazole (Diesel)</option>
+            <option value="e85_prix">Superéthanol E85</option>
+            <option value="gplc_prix">GPLc</option>
             <option value="elec">⚡ Électrique</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field field-center">
           <label id="consoLabel">Conso (L/100 km)</label>
-          <input type="number" id="conso" value="6.5" step="0.1" min="1">
+          <div class="stepper-line">
+            <button type="button" class="stepper-btn" id="consoMinus" aria-label="Diminuer la consommation">−</button>
+            <input type="number" id="conso" value="6.5" step="0.1" min="1">
+            <button type="button" class="stepper-btn" id="consoPlus" aria-label="Augmenter la consommation">+</button>
+          </div>
         </div>
       </div>
       <div class="prix-note" id="prixNote">Prix moyen actuel : <strong id="prixAffiche">chargement…</strong></div>
@@ -669,6 +683,18 @@ function onCarburantChange() {
 }
 fetchPrix();
 
+// ---------- Conso (+/- par pas de 0,1) ----------
+function stepConso(delta) {
+  const input = document.getElementById('conso');
+  const min = parseFloat(input.min) || 0;
+  let v = parseFloat(input.value);
+  if (isNaN(v)) v = min;
+  v = Math.max(min, Math.round((v + delta) * 10) / 10);
+  input.value = v.toFixed(1);
+}
+document.getElementById('consoMinus').addEventListener('click', () => stepConso(-0.1));
+document.getElementById('consoPlus').addEventListener('click', () => stepConso(0.1));
+
 // ---------- Voyageurs ----------
 let pax = 2;
 function setPax(n) {
@@ -714,6 +740,22 @@ function swapPlaces() {
   syncStarForInput(a); syncStarForInput(b);
   hideResults();
 }
+
+// Centre le bouton d'inversion exactement sur la jonction départ/arrivée :
+// les deux champs (label + input) n'ont pas la même hauteur totale que le
+// conteneur, donc un simple top:50% en CSS tombe trop haut.
+function positionSwapBtn() {
+  const wrap = document.querySelector('.points-wrap');
+  const depField = document.getElementById('depart').closest('.field');
+  const arrField = document.getElementById('arrivee').closest('.field');
+  const btn = document.getElementById('swapBtn');
+  if (!wrap || !depField || !arrField || !btn) return;
+  const wrapTop = wrap.getBoundingClientRect().top;
+  const seam = (depField.getBoundingClientRect().bottom + arrField.getBoundingClientRect().top) / 2;
+  btn.style.top = (seam - wrapTop) + 'px';
+}
+positionSwapBtn();
+window.addEventListener('resize', positionSwapBtn);
 
 // ---------- Table de liaisons train connues (temps réels, prix typiques) ----------
 // Clé : villes normalisées triées alphabétiquement. [heures de train, prix min, prix max]
@@ -923,7 +965,7 @@ function renderResults() {
   options.push({
     id: 'voiture', ico: '🚗', name: d.isElec ? 'Ta voiture (électrique)' : 'Ta voiture',
     pp: d.carVehicule / pax * arMult, ppLabel: fmtEur(d.carVehicule / pax * arMult),
-    tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax + ' · coût complet ' + fmtEur(d.carFull * arMult),
+    tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax + ' · coût complet (total voiture, usure incluse) ' + fmtEur(d.carFull * arMult) + ' soit ' + fmtEur(d.carFull * arMult / pax) + '/pers.',
     doorH: d.route.dureeH,
     meta: fmtH(d.route.dureeH) + ' porte à porte (aller) · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel * arMult) + ' + péages ≈ ' + fmtEur(d.carToll * arMult),
     co2: d.carCO2vehicule / pax * arMult,
