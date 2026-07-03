@@ -980,7 +980,7 @@ function renderResults() {
     meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
     co2: d.trainCO2 * arMult,
     confort: COMFORT_TRAIN,
-    cta: { txt: 'Prix réels SNCF Connect ›', url: 'https://www.sncf-connect.com/train/horaires/' + citySlug(d.from.city) + '/' + citySlug(d.to.city) },
+    cta: { txt: 'Chercher sur SNCF Connect ›', url: 'https://www.sncf-connect.com/' },
   });
   if (d.plane) {
     options.push({
@@ -991,7 +991,7 @@ function renderResults() {
       meta: 'Vol ' + fmtH(d.plane.volH) + ' (aller) · ≈ ' + fmtH(d.plane.doorH) + ' porte à porte (navettes + 2h aéroport)',
       co2: d.plane.co2 * arMult,
       confort: COMFORT_PLANE,
-      cta: { txt: 'Voir les vols ›', url: 'https://www.google.com/travel/flights?q=' + encodeURIComponent('vols de ' + d.from.city + ' à ' + d.to.city + (dateChoisie() ? ' le ' + dateFr() : '')) },
+      cta: { txt: 'Voir les vols ›', url: 'https://www.google.com/travel/flights?q=' + encodeURIComponent('vols aller simple de ' + d.from.city + ' à ' + d.to.city + (dateChoisie() ? ' le ' + dateFr() : '')) },
     });
   }
   options.push({
@@ -1002,7 +1002,7 @@ function renderResults() {
     meta: '≈ ' + fmtH(d.route.dureeH + 0.4) + ' porte à porte (aller) · selon les annonces',
     co2: d.covoitCO2 * arMult,
     confort: comfortCovoit(d.route.dureeH),
-    cta: { txt: 'Voir sur Blablacar ›', url: 'https://www.blablacar.fr/search?fn=' + encodeURIComponent(d.from.city) + '&tn=' + encodeURIComponent(d.to.city) + (dateChoisie() ? '&db=' + encodeURIComponent(dateFr()) : '') },
+    cta: { txt: 'Voir sur Blablacar ›', url: 'https://www.blablacar.fr/search?fn=' + encodeURIComponent(d.from.city) + '&tn=' + encodeURIComponent(d.to.city) + (dateChoisie() ? '&db=' + encodeURIComponent(dateFr()) : '') + '&transport_type=CARPOOLING' },
   });
 
   // Score pondéré : ratio au meilleur sur chaque critère (1 = meilleur).
