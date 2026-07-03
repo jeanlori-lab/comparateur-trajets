@@ -1,6 +1,6 @@
 {
-  "name": "Kikoute — voiture, train, avion ou covoit",
-  "short_name": "Kikoute",
+  "name": "Futéroute — voiture, train, avion ou covoit",
+  "short_name": "Futéroute",
   "description": "Comparateur honnête voiture / train / avion / covoiturage : ce que ton trajet coûte vraiment, porte à porte.",
   "start_url": ".",
   "display": "standalone",
