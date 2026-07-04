@@ -53,6 +53,12 @@
       margin-bottom: 14px;
       color: #1a2433;
     }
+    .card-hint {
+      font-size: 12px;
+      color: #607080;
+      line-height: 1.4;
+      margin: -8px 0 14px;
+    }
 
     .field { margin-bottom: 12px; position: relative; }
     .field label {
@@ -429,6 +435,7 @@
   <!-- ===== Paramètres ===== -->
   <div class="card">
     <div class="card-title">Ton trajet</div>
+    <div class="card-hint">Plus vous êtes précis dans votre itinéraire, plus les résultats le seront 😉</div>
 
     <div class="points-wrap">
       <div class="field">
@@ -520,7 +527,7 @@
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
-      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train &amp; avion : fourchettes estimées à vérifier via les liens (prix réels bientôt). Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
+      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train &amp; avion : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
     </div>
   </div>
 
@@ -926,11 +933,26 @@ function co2Chip(kg) {
   const cls = kg < 20 ? 'co2-low' : (kg < 120 ? 'co2-mid' : 'co2-high');
   return `<span class="co2chip ${cls}">≈ ${Math.round(kg)} kg CO₂/pers.</span>`;
 }
-// Slug de ville pour les URL SNCF Connect (paris, aix-en-provence…)
-function citySlug(s) {
-  return normCity(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 function dateChoisie() { return document.getElementById('dateTrajet').value || ''; } // YYYY-MM-DD
+// Facteur de prix lié à la date (train/avion, yield management) :
+// réserver tôt tire la fourchette vers le bas, la dernière minute vers le
+// haut, et les jours de chassé-croisé (vendredi, dimanche) majorent.
+function facteurDate() {
+  const iso = dateChoisie();
+  if (!iso) return 1;
+  const d = new Date(iso + 'T12:00:00');
+  const jours = (d - new Date()) / 86400000;
+  let f;
+  if (jours < 0) f = 1;            // date passée : neutre
+  else if (jours <= 2) f = 1.30;   // dernière minute
+  else if (jours <= 7) f = 1.15;
+  else if (jours <= 21) f = 1.00;  // prix typique
+  else if (jours <= 45) f = 0.90;
+  else f = 0.85;                   // réservation très anticipée
+  const wd = d.getDay();
+  if (wd === 5 || wd === 0) f *= 1.10; // vendredi / dimanche
+  return f;
+}
 function dateFr() {
   const iso = dateChoisie();
   if (!iso) return '';
@@ -1006,32 +1028,42 @@ async function comparer() {
       const mid = (min + max) / 2;
       return [min + 0.4 * (mid - min), max - 0.4 * (max - mid)];
     };
+    // Yield management : la fourchette glisse selon l'anticipation de la
+    // réservation (la date est choisie dans le formulaire) et le jour de la
+    // semaine (vendredi/dimanche = chassé-croisé, plus cher).
+    const fDate = facteurDate();
     const pair = lookupTrainPair(from.city, to.city);
     let train;
     if (pair) {
       const [pMin, pMax] = shrink(pair[1], pair[2]);
-      train = { hRail: pair[0], pMin, pMax, source: 'liaison connue' };
+      train = { hRail: pair[0], pMin: pMin * fDate, pMax: pMax * fDate, source: 'liaison connue' };
     } else {
       const railKm = crowKm * 1.25;
       const base = 8 + railKm * 0.095;
-      train = { hRail: railKm / 135 + 0.6, pMin: base * 0.75, pMax: base * 1.35, source: 'estimation' };
+      train = { hRail: railKm / 135 + 0.6, pMin: base * 0.75 * fDate, pMax: base * 1.35 * fDate, source: 'estimation' };
     }
     const trainDoorH = train.hRail + 1.0; // accès gares + marge
     const trainCO2 = crowKm * 1.2 * 0.0035;
 
     // --- Avion (si pertinent) ---
+    // L'avion pratique un yield management encore plus agressif que le train :
+    // le facteur date est amplifié (écart accentué au-delà de 1, creusé en deçà).
     const planeOk = crowKm > 400;
     let plane = null;
     if (planeOk) {
       const volH = crowKm / 720 + 0.55;
       const doorH = volH + 3.4; // navettes aéroports + 2h avance + récup bagages
       const base = 28 + crowKm * 0.055;
-      // Fourchette resserrée autour du prix typique (comme le train).
-      plane = { volH, doorH, pMin: base * 0.85, pMax: base * 1.7, co2: crowKm * 1.1 * 0.26 };
+      const fPlane = 1 + (fDate - 1) * 1.6;
+      plane = { volH, doorH, pMin: base * 0.85 * fPlane, pMax: base * 1.7 * fPlane, co2: crowKm * 1.1 * 0.26 };
     }
 
     // --- Covoiturage ---
-    const covoitPP = Math.max(5, route.distKm * 0.065);
+    // Tarif au km dégressif avec la distance, comme les prix conseillés
+    // BlaBlaCar (les longs trajets sont proportionnellement moins chers).
+    // Peu sensible à la date : les conducteurs suivent le barème conseillé.
+    const covoitRate = route.distKm < 100 ? 0.085 : (route.distKm < 300 ? 0.07 : 0.058);
+    const covoitPP = Math.max(5, route.distKm * covoitRate);
     const covoitCO2 = route.distKm * 0.218 / 3;
 
     lastData = { from, to, route, crowKm, isElec, carFuel, carToll, carVehicule, carCO2vehicule, train, trainDoorH, trainCO2, plane, covoitPP, covoitCO2 };
@@ -1154,22 +1186,21 @@ function renderResults() {
 
 // ---------- Pop-up billets de train ----------
 // Sites retenus (volontairement peu nombreux) : SNCF Connect (l'officiel),
-// Trainline et Omio (comparateurs avec pages publiques préremplissables),
-// Trenitalia (concurrent direct de la SNCF sur Paris–Lyon et vers l'Italie).
-// Départ/arrivée sont préremplis quand le site expose des URL publiques
-// (Trainline, Omio) ; SNCF Connect et Trenitalia n'offrent plus de lien
-// profond fiable, on ouvre leur recherche.
+// Trainline et Omio (comparateurs multi-compagnies), Trenitalia (concurrent
+// direct de la SNCF sur Paris–Lyon et vers l'Italie). Aucun de ces sites
+// n'expose d'URL publique de recherche préremplie (formats testés → 404),
+// on ouvre donc leur accueil et on rappelle le trajet dans la pop-up.
 function openTrainModal() {
   if (!lastData) return;
   const from = lastData.from.city, to = lastData.to.city;
-  const sFrom = citySlug(from), sTo = citySlug(to);
   const sites = [
     { name: 'SNCF Connect', desc: 'Le site officiel SNCF (TGV, Intercités, TER)', url: 'https://www.sncf-connect.com/' },
-    { name: 'Trainline', desc: from + ' → ' + to + ' prérempli · compare SNCF et concurrents', url: 'https://www.thetrainline.com/fr/horaires-trains/' + sFrom + '-a-' + sTo },
-    { name: 'Omio', desc: from + ' → ' + to + ' prérempli · trains, bus et avions', url: 'https://www.omio.fr/trains/' + sFrom + '/' + sTo },
+    { name: 'Trainline', desc: 'Compare SNCF et concurrents (Eurostar, Renfe…)', url: 'https://www.thetrainline.com/fr' },
+    { name: 'Omio', desc: 'Trains, bus et avions en une seule recherche', url: 'https://www.omio.fr/' },
     { name: 'Trenitalia France', desc: 'Souvent moins cher sur Paris–Lyon et vers l\'Italie', url: 'https://www.trenitalia.com/fr.html' },
   ];
-  document.getElementById('trainModalSub').textContent = from + ' → ' + to + (dateChoisie() ? ' · ' + dateFr() : '');
+  document.getElementById('trainModalSub').textContent =
+    from + ' → ' + to + (dateChoisie() ? ' · ' + dateFr() : '') + ' — à ressaisir sur le site choisi';
   const wrap = document.getElementById('trainModalLinks');
   wrap.innerHTML = '';
   sites.forEach(s => {
@@ -1203,6 +1234,9 @@ function hideError()   { document.getElementById('error').style.display = 'none'
 function hideResults() { document.getElementById('results').style.display = 'none'; lastData = null; }
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') comparer(); });
+// Le facteur date est appliqué au moment du calcul : changer la date
+// invalide donc les résultats affichés (il faut recomparer).
+document.getElementById('dateTrajet').addEventListener('change', hideResults);
 // Date par défaut : samedi prochain (usage typique week-end)
 (function() {
   const d = new Date();
