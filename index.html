@@ -373,6 +373,49 @@
     }
 
     .footer { text-align: center; font-size: 10.5px; color: #90a4ae; margin-top: 18px; line-height: 1.6; }
+
+    /* Pop-up : choix du site de réservation train */
+    .modal-back {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15,25,40,0.45);
+      z-index: 2000;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-back.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+    .modal-title { font-size: 16px; font-weight: 800; color: #1a2433; }
+    .modal-sub { font-size: 12px; color: #607080; margin: 4px 0 14px; line-height: 1.4; }
+    .site-btn {
+      display: block;
+      text-decoration: none;
+      border: 1.5px solid #dbe3ec;
+      border-radius: 12px;
+      padding: 11px 14px;
+      margin-bottom: 8px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .site-btn:hover { border-color: #1976d2; background: #eef6ff; }
+    .site-name { font-size: 14px; font-weight: 700; color: #1a2433; }
+    .site-desc { font-size: 11px; color: #607080; margin-top: 2px; line-height: 1.4; }
+    .modal-close {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px;
+      background: none; border: none;
+      font-family: inherit;
+      font-size: 13px; font-weight: 700;
+      color: #607080;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: #1a2433; }
   </style>
 </head>
 <body>
@@ -483,6 +526,16 @@
 
   <div class="footer">Futéroute est indépendant : aucun mode de transport ne nous paie pour gagner.<br>Comparaison honnête, porte à porte.</div>
 
+  <!-- Pop-up : où réserver son billet de train -->
+  <div class="modal-back" id="trainModal" onclick="if (event.target === this) closeTrainModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trainModalTitle">
+      <div class="modal-title" id="trainModalTitle">Voir les billets de train</div>
+      <div class="modal-sub" id="trainModalSub">—</div>
+      <div id="trainModalLinks"></div>
+      <button type="button" class="modal-close" onclick="closeTrainModal()">Fermer</button>
+    </div>
+  </div>
+
   <input type="hidden" id="apiKey" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImY1NjRiM2M4Yjc0OTQ0ZDlhNmNjM2FiOWQzNjFhNTE2IiwiaCI6Im11cm11cjY0In0=">
 </div>
 
@@ -513,8 +566,15 @@ function photonLabel(p) {
 // dès qu'on clique dans un champ vide (avant même d'avoir tapé un caractère).
 const FAV_PLACES_KEY = 'kikouteFavPlaces';
 const FAV_PLACES_MAX = 30;
+// Chaque favori garde aussi ses coordonnées : re-géocoder un label déjà
+// résolu peut retomber sur un autre lieu (ex. « Marseille » relancé dans le
+// géocodeur ressortait l'aéroport, commune de Marignane). Les anciens favoris
+// (simples chaînes) restent lisibles, sans coordonnées.
 function getFavPlaces() {
-  try { return JSON.parse(localStorage.getItem(FAV_PLACES_KEY) || '[]'); } catch (e) { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(FAV_PLACES_KEY) || '[]');
+    return raw.map(f => (typeof f === 'string' ? { label: f } : f)).filter(f => f && f.label);
+  } catch (e) { return []; }
 }
 function setFavPlaces(arr) {
   try { localStorage.setItem(FAV_PLACES_KEY, JSON.stringify(arr)); } catch (e) {}
@@ -522,7 +582,7 @@ function setFavPlaces(arr) {
 function isFavPlace(text) {
   const key = text.trim().toLowerCase();
   if (!key) return false;
-  return getFavPlaces().some(f => f.trim().toLowerCase() === key);
+  return getFavPlaces().some(f => f.label.trim().toLowerCase() === key);
 }
 function updateStarUI(star, active) {
   star.classList.toggle('active', active);
@@ -547,15 +607,19 @@ function showFavHint(star) {
     setTimeout(() => hint.remove(), 250);
   }, 2600);
 }
-function toggleFavPlace(text, star) {
-  const val = text.trim();
+function toggleFavPlace(input, star) {
+  const val = input.value.trim();
   if (!val) return;
   const key = val.toLowerCase();
   let favs = getFavPlaces();
-  const idx = favs.findIndex(f => f.trim().toLowerCase() === key);
+  const idx = favs.findIndex(f => f.label.trim().toLowerCase() === key);
   let added;
   if (idx >= 0) { favs.splice(idx, 1); added = false; }
-  else { favs = [val, ...favs].slice(0, FAV_PLACES_MAX); added = true; }
+  else {
+    const fav = { label: val, lat: input.dataset.lat || '', lng: input.dataset.lng || '', city: input.dataset.city || '' };
+    favs = [fav, ...favs].slice(0, FAV_PLACES_MAX);
+    added = true;
+  }
   setFavPlaces(favs);
   updateStarUI(star, added);
   if (added) showFavHint(star);
@@ -567,14 +631,16 @@ function showFavoritesIfEmpty(input) {
   const favs = getFavPlaces();
   if (!favs.length) { list.style.display = 'none'; return; }
   list.innerHTML = '';
-  favs.slice(0, 6).forEach(label => {
+  favs.slice(0, 6).forEach(fav => {
     const div = document.createElement('div');
     div.className = 'autocomplete-item';
-    div.textContent = '★ ' + label;
+    div.textContent = '★ ' + fav.label;
     div.addEventListener('mousedown', e => {
       e.preventDefault();
-      input.value = label;
-      input.dataset.lat = ''; input.dataset.lng = ''; input.dataset.city = '';
+      input.value = fav.label;
+      // On restaure les coordonnées mémorisées avec le favori : pas de
+      // re-géocodage (source du bug « Marseille → Marignane »).
+      input.dataset.lat = fav.lat || ''; input.dataset.lng = fav.lng || ''; input.dataset.city = fav.city || '';
       list.style.display = 'none';
       hideResults();
       syncStarForInput(input);
@@ -637,24 +703,44 @@ document.addEventListener('click', e => {
 document.querySelectorAll('.fav-star').forEach(star => {
   star.addEventListener('click', () => {
     const input = star.closest('.field').querySelector('input.place-input');
-    toggleFavPlace(input.value, star);
+    toggleFavPlace(input, star);
   });
 });
 document.querySelectorAll('input.place-input').forEach(input => {
   input.addEventListener('focus', () => showFavoritesIfEmpty(input));
 });
 
+// Choisit le résultat de géocodage qui correspond vraiment au texte tapé :
+// prendre feats[0] à l'aveugle faisait ressortir des lieux annexes (l'aéroport
+// de Marseille est sur la commune de Marignane, les gares/aérodromes portent
+// le nom de la ville sans y être). On privilégie la commune dont le nom
+// correspond au premier segment tapé, et on pénalise les aéroports.
+function pickGeocodeFeature(feats, typed) {
+  const want = normCity(String(typed).split(',')[0]);
+  const score = f => {
+    const p = f.properties;
+    let s = 0;
+    if (normCity(p.name || '') === want) s += 4;
+    else if (cityTokens(p.name || '').includes(want)) s += 1;
+    if (normCity(p.city || '') === want) s += 2;
+    const type = ((p.osm_value || '') + ' ' + (p.osm_key || '')).toLowerCase();
+    if (/\b(city|town|village|municipality|borough|hamlet)\b/.test(type)) s += 2;
+    if (/aerodrome|airport|aeroway|helipad/.test(type)) s -= 5;
+    if (p.countrycode === 'FR') s += 1;
+    return s;
+  };
+  return feats.slice().sort((a, b) => score(b) - score(a))[0];
+}
 async function geocode(input) {
   if (input.dataset.lat && input.dataset.lng) {
     return { lat: parseFloat(input.dataset.lat), lng: parseFloat(input.dataset.lng), city: input.dataset.city || input.value };
   }
-  const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input.value.trim())}&limit=5&lang=fr&lat=48.8566&lon=2.3522`);
+  const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input.value.trim())}&limit=10&lang=fr`);
   if (!r.ok) throw new Error('Géocodage impossible pour « ' + input.value + ' »');
   const d = await r.json();
   const feats = (d.features || []).filter(f => EUROPE_CC.has(f.properties.countrycode));
-  feats.sort((a, b) => ((a.properties.countrycode === 'FR') ? 0 : 1) - ((b.properties.countrycode === 'FR') ? 0 : 1));
   if (!feats.length) throw new Error('Adresse introuvable en Europe : « ' + input.value + ' »');
-  const f = feats[0];
+  const f = pickGeocodeFeature(feats, input.value.trim());
   return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], city: f.properties.city || f.properties.name || input.value };
 }
 
@@ -1000,7 +1086,7 @@ function renderResults() {
     meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
     co2: d.trainCO2 * arMult,
     confort: COMFORT_TRAIN,
-    cta: { txt: 'Chercher sur SNCF Connect ›', url: 'https://www.sncf-connect.com/' },
+    cta: { txt: 'Voir les billets de train ›', modal: true },
   });
   if (d.plane) {
     options.push({
@@ -1056,13 +1142,56 @@ function renderResults() {
       '<div class="mode-price">' +
         '<div class="pp">' + o.ppLabel + '<span class="u">/pers.</span></div>' +
         '<div class="tot">' + o.tot + '</div>' +
-        (o.cta ? '<a class="mode-cta" href="' + o.cta.url + '" target="_blank" rel="noopener">' + o.cta.txt + '</a>' : '') +
+        (o.cta ? (o.cta.modal
+          ? '<a class="mode-cta" href="#" onclick="openTrainModal(); return false;">' + o.cta.txt + '</a>'
+          : '<a class="mode-cta" href="' + o.cta.url + '" target="_blank" rel="noopener">' + o.cta.txt + '</a>') : '') +
       '</div>';
     wrap.appendChild(card);
   });
 
   document.getElementById('results').style.display = 'block';
 }
+
+// ---------- Pop-up billets de train ----------
+// Sites retenus (volontairement peu nombreux) : SNCF Connect (l'officiel),
+// Trainline et Omio (comparateurs avec pages publiques préremplissables),
+// Trenitalia (concurrent direct de la SNCF sur Paris–Lyon et vers l'Italie).
+// Départ/arrivée sont préremplis quand le site expose des URL publiques
+// (Trainline, Omio) ; SNCF Connect et Trenitalia n'offrent plus de lien
+// profond fiable, on ouvre leur recherche.
+function openTrainModal() {
+  if (!lastData) return;
+  const from = lastData.from.city, to = lastData.to.city;
+  const sFrom = citySlug(from), sTo = citySlug(to);
+  const sites = [
+    { name: 'SNCF Connect', desc: 'Le site officiel SNCF (TGV, Intercités, TER)', url: 'https://www.sncf-connect.com/' },
+    { name: 'Trainline', desc: from + ' → ' + to + ' prérempli · compare SNCF et concurrents', url: 'https://www.thetrainline.com/fr/horaires-trains/' + sFrom + '-a-' + sTo },
+    { name: 'Omio', desc: from + ' → ' + to + ' prérempli · trains, bus et avions', url: 'https://www.omio.fr/trains/' + sFrom + '/' + sTo },
+    { name: 'Trenitalia France', desc: 'Souvent moins cher sur Paris–Lyon et vers l\'Italie', url: 'https://www.trenitalia.com/fr.html' },
+  ];
+  document.getElementById('trainModalSub').textContent = from + ' → ' + to + (dateChoisie() ? ' · ' + dateFr() : '');
+  const wrap = document.getElementById('trainModalLinks');
+  wrap.innerHTML = '';
+  sites.forEach(s => {
+    const a = document.createElement('a');
+    a.className = 'site-btn';
+    a.href = s.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'site-name';
+    nameDiv.textContent = s.name + ' ›';
+    const descDiv = document.createElement('div');
+    descDiv.className = 'site-desc';
+    descDiv.textContent = s.desc;
+    a.appendChild(nameDiv);
+    a.appendChild(descDiv);
+    wrap.appendChild(a);
+  });
+  document.getElementById('trainModal').classList.add('open');
+}
+function closeTrainModal() { document.getElementById('trainModal').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrainModal(); });
 
 // ---------- Divers ----------
 function setLoading(on) {
