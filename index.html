@@ -852,26 +852,38 @@ function dateFr() {
   return `${d}/${m}/${y}`;
 }
 
-// ---------- Itinéraire voiture (ORS) ----------
-async function getRoute(from, to) {
+// ---------- Itinéraire voiture (ORS, avec repli si le point ne "snap" pas ----------
+// sur le réseau routier : grandes villes aux limites communales étendues en mer
+// (Marseille, ses calanques et ses îles par ex.), ou service temporairement
+// indisponible/quota dépassé. Plutôt que de bloquer toute la comparaison, on
+// bascule sur une estimation à vol d'oiseau, clairement annoncée comme telle.
+async function getRouteORS(from, to) {
   const apiKey = document.getElementById('apiKey').value.trim();
   const r = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
     method: 'POST',
     headers: { 'Authorization': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] })
+    body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]], radiuses: [-1, -1] })
   });
   if (!r.ok) {
-    // On remonte la vraie cause (quota dépassé, clé invalide, pas de route...)
-    // au lieu d'un message générique qui masque le problème.
     let detail = 'HTTP ' + r.status;
     try { const body = await r.json(); detail = (body.error && (body.error.message || body.error.code)) || detail; } catch (e) {}
-    if (r.status === 401 || r.status === 403) throw new Error('Clé API voiture invalide ou quota dépassé (' + detail + ')');
-    if (r.status === 429) throw new Error('Trop de calculs d\'itinéraire en ce moment, réessaie dans un instant (quota atteint)');
-    throw new Error('Itinéraire introuvable : ' + detail);
+    throw new Error(detail);
   }
   const d = await r.json();
   const s = d.routes[0].summary;
-  return { distKm: s.distance / 1000, dureeH: s.duration / 3600 };
+  return { distKm: s.distance / 1000, dureeH: s.duration / 3600, estimated: false };
+}
+function estimateRoute(from, to) {
+  const crow = haversineKm(from.lat, from.lng, to.lat, to.lng);
+  return { distKm: crow * 1.30, dureeH: crow * 1.30 / 85, estimated: true };
+}
+async function getRoute(from, to) {
+  try {
+    return await getRouteORS(from, to);
+  } catch (e) {
+    console.warn('Itinéraire précis indisponible (' + e.message + '), repli sur une estimation à vol d\'oiseau.');
+    return estimateRoute(from, to);
+  }
 }
 
 // ---------- Le cœur : construire les 4 options ----------
@@ -975,7 +987,7 @@ function renderResults() {
     pp: d.carVehicule / pax * arMult, ppLabel: fmtEur(d.carVehicule / pax * arMult),
     tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax,
     doorH: d.route.dureeH,
-    meta: fmtH(d.route.dureeH) + ' porte à porte (aller) · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel * arMult) + ' + péages ≈ ' + fmtEur(d.carToll * arMult),
+    meta: (d.route.estimated ? 'estimation · ' : '') + fmtH(d.route.dureeH) + ' porte à porte (aller) · ' + (d.isElec ? 'recharges' : 'carburant') + ' ' + fmtEur(d.carFuel * arMult) + ' + péages ≈ ' + fmtEur(d.carToll * arMult),
     co2: d.carCO2vehicule / pax * arMult,
     confort: comfortCar(d.route.dureeH),
     cta: { txt: 'Voir l\'itinéraire sur Maps ›', url: 'https://www.google.com/maps/dir/?api=1&origin=' + d.from.lat + ',' + d.from.lng + '&destination=' + d.to.lat + ',' + d.to.lng + '&travelmode=driving' },
@@ -1026,7 +1038,7 @@ function renderResults() {
   // Rendu
   document.getElementById('resHead').textContent = d.from.city + ' → ' + d.to.city;
   document.getElementById('resSub').textContent =
-    Math.round(d.route.distKm).toLocaleString('fr-FR') + ' km par la route' + arSuffix + ' · ' + pax + ' voyageur' + (pax > 1 ? 's' : '');
+    Math.round(d.route.distKm).toLocaleString('fr-FR') + ' km par la route' + (d.route.estimated ? ' (estimation)' : '') + arSuffix + ' · ' + pax + ' voyageur' + (pax > 1 ? 's' : '');
   document.getElementById('whyNote').innerHTML = 'Classement selon ta priorité : <b>' + PRIO_LABELS[priorite] + '</b>';
 
   const wrap = document.getElementById('modeCards');
