@@ -13,45 +13,56 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Futéroute">
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+CjxyZWN0IHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjIyIiBmaWxsPSIjMTk3NmQyIi8+CjxwYXRoIGQ9Ik00OCAxNCBWODIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1vcGFjaXR5PSIwLjYiLz4KPHBhdGggZD0iTTI5IDIxIEg2NyBMODEgMzIgTDY3IDQzIEgyOSBaIiBmaWxsPSIjZmZkNzVlIiBzdHJva2U9IiNmZmQ3NWUiIHN0cm9rZS13aWR0aD0iNC41IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjx0ZXh0IHg9IjQ4IiB5PSIzOSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjMTk3NmQyIj7igqw8L3RleHQ+CjxwYXRoIGQ9Ik02NCA1MiBIMzIgTDIwIDYxIEwzMiA3MCBINjQgWiIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjQuNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
+      background: #eef2f6;
       min-height: 100vh;
       padding: 24px 16px;
       color: #1a2433;
     }
-    .page { max-width: 480px; margin: 0 auto; }
+    .page { max-width: 520px; margin: 0 auto; }
 
     .header { text-align: center; margin-bottom: 20px; }
     .header h1 {
+      font-family: 'Sora', 'Segoe UI', Arial, sans-serif;
       font-size: 34px;
-      font-weight: 800;
-      color: #1a2433;
-      letter-spacing: -0.01em;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: inline-block;
+      transform: scaleY(1.12);
+      background: linear-gradient(135deg, #0f1729, #29405e);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
-    .header h1 .hl { color: #1976d2; }
+    .header h1 .hl { color: #e2971a; font-weight: 800; -webkit-text-fill-color: #e2971a; }
     .header p {
       font-size: 14px;
       color: #607080;
-      margin-top: 8px;
+      margin-top: 12px;
       line-height: 1.5;
       padding: 0 12px;
     }
 
     .card {
       background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-radius: 18px;
+      box-shadow: 0 6px 22px rgba(15,23,41,0.14);
       padding: 22px;
       margin-bottom: 14px;
     }
     .card-title {
-      font-size: 15px;
+      font-size: 11px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #90a4ae;
       margin-bottom: 14px;
-      color: #1a2433;
     }
     .card-hint {
       font-size: 12px;
@@ -435,7 +446,7 @@
   <!-- ===== Paramètres ===== -->
   <div class="card">
     <div class="card-title">Ton trajet</div>
-    <div class="card-hint">Plus vous êtes précis dans votre itinéraire, plus les résultats le seront 😉</div>
+    <div class="card-hint">Plus tu es précis dans ton itinéraire, plus les résultats le seront 😉</div>
 
     <div class="points-wrap">
       <div class="field">
