@@ -568,6 +568,47 @@ function photonLabel(p) {
   return parts.filter(Boolean).join(', ');
 }
 
+async function fetchBAN(q, limit) {
+  try {
+    const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=${limit}&autocomplete=1`);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d.features || [];
+  } catch (e) { return []; }
+}
+async function fetchPhoton(q, limit) {
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=${limit}&lang=fr`);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.features || []).filter(f => EUROPE_CC.has(f.properties.countrycode));
+  } catch (e) { return []; }
+}
+// Recherche de lieux : API Adresse officielle (BAN, data.gouv.fr) en priorité
+// pour la France — exhaustive et bien priorisée sur les adresses françaises
+// (jusqu'au numéro de rue), gratuite et sans clé, et qui ne référence que des
+// adresses réelles (pas d'aéroport ressorti sous le nom de sa commune) —
+// complétée par Photon (Komoot) pour le reste de l'Europe, que BAN ne couvre pas.
+async function searchPlaces(q, limit) {
+  const [banFeats, photonFeats] = await Promise.all([fetchBAN(q, limit), fetchPhoton(q, limit)]);
+  const ban = banFeats.map(f => ({
+    label: f.properties.label,
+    lat: f.geometry.coordinates[1],
+    lng: f.geometry.coordinates[0],
+    city: f.properties.city || f.properties.name,
+  }));
+  const photon = photonFeats
+    .filter(f => f.properties.countrycode !== 'FR')
+    .map(f => ({
+      label: photonLabel(f.properties),
+      lat: f.geometry.coordinates[1],
+      lng: f.geometry.coordinates[0],
+      city: f.properties.city || f.properties.name,
+    }))
+    .filter(f => f.label);
+  return [...ban, ...photon];
+}
+
 // ---------- Lieux favoris (départ/arrivée) ----------
 // Mémorisés dans le navigateur, proposés en premier dans l'autocomplétion
 // dès qu'on clique dans un champ vide (avant même d'avoir tapé un caractère).
@@ -667,37 +708,30 @@ function onPlaceInput(input) {
   if (val.length < 3) { list.style.display = 'none'; return; }
   autoTimers.set(input, setTimeout(async () => {
     try {
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(val)}&limit=8&lang=fr&lat=48.8566&lon=2.3522`;
-      const r = await fetch(url);
-      if (!r.ok) { list.style.display = 'none'; return; }
-      const d = await r.json();
+      const results = await searchPlaces(val, 8);
       list.innerHTML = '';
       const vus = new Set();
-      (d.features || [])
-        .filter(f => EUROPE_CC.has(f.properties.countrycode))
-        .sort((a, b) => ((a.properties.countrycode === 'FR') ? 0 : 1) - ((b.properties.countrycode === 'FR') ? 0 : 1))
-        .forEach(f => {
-          if (list.children.length >= 6) return;
-          const label = photonLabel(f.properties);
-          if (!label) return;
-          const cle = label.toLowerCase();
-          if (vus.has(cle)) return;
-          vus.add(cle);
-          const div = document.createElement('div');
-          div.className = 'autocomplete-item';
-          div.textContent = label;
-          div.addEventListener('mousedown', e => {
-            e.preventDefault();
-            input.value = label;
-            input.dataset.lat = f.geometry.coordinates[1];
-            input.dataset.lng = f.geometry.coordinates[0];
-            input.dataset.city = f.properties.city || f.properties.name || '';
-            list.style.display = 'none';
-            hideResults();
-            syncStarForInput(input);
-          });
-          list.appendChild(div);
+      results.forEach(f => {
+        if (list.children.length >= 6) return;
+        if (!f.label) return;
+        const cle = f.label.toLowerCase();
+        if (vus.has(cle)) return;
+        vus.add(cle);
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        div.textContent = f.label;
+        div.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = f.label;
+          input.dataset.lat = f.lat;
+          input.dataset.lng = f.lng;
+          input.dataset.city = f.city || '';
+          list.style.display = 'none';
+          hideResults();
+          syncStarForInput(input);
         });
+        list.appendChild(div);
+      });
       list.style.display = list.children.length ? 'block' : 'none';
     } catch (e) { list.style.display = 'none'; }
   }, 300));
@@ -742,12 +776,19 @@ async function geocode(input) {
   if (input.dataset.lat && input.dataset.lng) {
     return { lat: parseFloat(input.dataset.lat), lng: parseFloat(input.dataset.lng), city: input.dataset.city || input.value };
   }
-  const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input.value.trim())}&limit=10&lang=fr`);
-  if (!r.ok) throw new Error('Géocodage impossible pour « ' + input.value + ' »');
-  const d = await r.json();
-  const feats = (d.features || []).filter(f => EUROPE_CC.has(f.properties.countrycode));
+  const texte = input.value.trim();
+  // BAN d'abord (France) : elle ne référence que des adresses réelles, donc
+  // pas d'aéroport ressorti sous le nom de sa commune (bug « Marseille →
+  // Marignane »). Repli sur Photon (avec le même choix « meilleur résultat »
+  // que pickGeocodeFeature) si BAN ne renvoie rien, pour l'étranger.
+  const banFeats = await fetchBAN(texte, 5);
+  if (banFeats.length) {
+    const f = banFeats[0];
+    return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], city: f.properties.city || f.properties.name || input.value };
+  }
+  const feats = await fetchPhoton(texte, 10);
   if (!feats.length) throw new Error('Adresse introuvable en Europe : « ' + input.value + ' »');
-  const f = pickGeocodeFeature(feats, input.value.trim());
+  const f = pickGeocodeFeature(feats, texte);
   return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], city: f.properties.city || f.properties.name || input.value };
 }
 
