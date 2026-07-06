@@ -1239,14 +1239,29 @@ function renderResults() {
 // ---------- Pop-up billets de train ----------
 // Sites retenus (volontairement peu nombreux) : SNCF Connect (l'officiel),
 // Trainline et Omio (comparateurs multi-compagnies), Trenitalia (concurrent
-// direct de la SNCF sur Paris–Lyon et vers l'Italie). Aucun de ces sites
-// n'expose d'URL publique de recherche préremplie (formats testés → 404),
-// on ouvre donc leur accueil et on rappelle le trajet dans la pop-up.
+// direct de la SNCF sur Paris–Lyon et vers l'Italie).
+// SNCF Connect accepte un paramètre ?userInput= qui préremplit sa barre de
+// recherche (repéré en observant la page /home/search) ; les autres n'ont
+// pas de format d'URL public équivalent (codes de gare internes requis),
+// on ouvre donc leur accueil.
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function sncfConnectUrl(from, to) {
+  const type = resultMode === 'ar' ? 'aller-retour' : 'aller-simple';
+  const iso = dateChoisie();
+  let datePart = '';
+  if (iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    datePart = ', Le ' + d + ' ' + MOIS_FR[m - 1];
+  }
+  const pers = pax + ' voyageur' + (pax > 1 ? 's' : '');
+  const userInput = from + ' - ' + to + ', ' + type + datePart + ', ' + pers;
+  return 'https://www.sncf-connect.com/home/search?userInput=' + encodeURIComponent(userInput);
+}
 function openTrainModal() {
   if (!lastData) return;
   const from = lastData.from.city, to = lastData.to.city;
   const sites = [
-    { name: 'SNCF Connect', desc: 'Le site officiel SNCF (TGV, Intercités, TER)', url: 'https://www.sncf-connect.com/' },
+    { name: 'SNCF Connect', desc: 'Le site officiel SNCF (TGV, Intercités, TER)', url: sncfConnectUrl(from, to) },
     { name: 'Trainline', desc: 'Compare SNCF et concurrents (Eurostar, Renfe…)', url: 'https://www.thetrainline.com/fr' },
     { name: 'Omio', desc: 'Trains, bus et avions en une seule recherche', url: 'https://www.omio.fr/' },
     { name: 'Trenitalia France', desc: 'Souvent moins cher sur Paris–Lyon et vers l\'Italie', url: 'https://www.trenitalia.com/fr.html' },
