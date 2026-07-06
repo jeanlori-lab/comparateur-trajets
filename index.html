@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Futéroute — voiture, train, avion ou covoit ?</title>
-  <meta name="description" content="Ce que ton trajet coûte vraiment, porte à porte : voiture, train, avion ou covoiturage, en € et en CO₂.">
+  <meta name="description" content="Ce que votre trajet coûte vraiment, porte à porte : voiture, train, avion ou covoiturage, en € et en CO₂.">
   <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+CjxyZWN0IHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjIyIiBmaWxsPSIjMTk3NmQyIi8+CjxwYXRoIGQ9Ik00OCAxNCBWODIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1vcGFjaXR5PSIwLjYiLz4KPHBhdGggZD0iTTI5IDIxIEg2NyBMODEgMzIgTDY3IDQzIEgyOSBaIiBmaWxsPSIjZmZkNzVlIiBzdHJva2U9IiNmZmQ3NWUiIHN0cm9rZS13aWR0aD0iNC41IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjx0ZXh0IHg9IjQ4IiB5PSIzOSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjMTk3NmQyIj7igqw8L3RleHQ+CjxwYXRoIGQ9Ik02NCA1MiBIMzIgTDIwIDYxIEwzMiA3MCBINjQgWiIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjQuNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K">
   <!-- PWA : installable sur l'écran d'accueil -->
   <link rel="manifest" href="manifest.json">
@@ -440,13 +440,13 @@
 
   <div class="header">
     <h1><span class="hl">Futé</span>route</h1>
-    <p>Voiture, train, avion ou covoit ?<br>Ce que ton trajet coûte <b>vraiment</b>, porte à porte.</p>
+    <p>Voiture, train, avion ou covoit ?<br>Ce que votre trajet coûte <b>vraiment</b>, porte à porte.</p>
   </div>
 
   <!-- ===== Paramètres ===== -->
   <div class="card">
-    <div class="card-title">Ton trajet</div>
-    <div class="card-hint">Plus tu es précis dans ton itinéraire, plus les résultats le seront 😉</div>
+    <div class="card-title">Votre trajet</div>
+    <div class="card-hint">Plus vous êtes précis dans votre itinéraire, plus les résultats le seront 😉</div>
 
     <div class="points-wrap">
       <div class="field">
@@ -484,7 +484,7 @@
     </div>
 
     <div class="field">
-      <label>Le plus important pour toi</label>
+      <label>Le plus important pour vous</label>
       <div class="prio-chips" id="prioChips">
         <button type="button" class="prio-chip" data-prio="prix">💰 Prix</button>
         <button type="button" class="prio-chip" data-prio="rapidite">⚡ Rapidité</button>
@@ -1053,7 +1053,7 @@ async function comparer() {
   hideError(); hideResults();
   const depInput = document.getElementById('depart');
   const arrInput = document.getElementById('arrivee');
-  if (!depInput.value.trim() || !arrInput.value.trim()) return showError('⚠️ Remplis le départ et l\'arrivée.');
+  if (!depInput.value.trim() || !arrInput.value.trim()) return showError('⚠️ Remplissez le départ et l\'arrivée.');
   const conso = parseFloat(document.getElementById('conso').value);
   if (isNaN(conso) || conso <= 0) return showError('⚠️ Consommation invalide.');
 
@@ -1209,7 +1209,7 @@ function renderResults() {
   document.getElementById('resHead').textContent = d.from.city + ' → ' + d.to.city;
   document.getElementById('resSub').textContent =
     Math.round(d.route.distKm).toLocaleString('fr-FR') + ' km par la route' + (d.route.estimated ? ' (estimation)' : '') + arSuffix + ' · ' + pax + ' voyageur' + (pax > 1 ? 's' : '');
-  document.getElementById('whyNote').innerHTML = 'Classement selon ta priorité : <b>' + PRIO_LABELS[priorite] + '</b>';
+  document.getElementById('whyNote').innerHTML = 'Classement selon votre priorité : <b>' + PRIO_LABELS[priorite] + '</b>';
 
   const wrap = document.getElementById('modeCards');
   wrap.innerHTML = '';
