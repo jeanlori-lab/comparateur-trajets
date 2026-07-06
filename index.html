@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Futéroute — voiture, train, avion ou covoit ?</title>
+  <title>Futéroute : voiture, train, avion ou covoit ?</title>
   <meta name="description" content="Ce que votre trajet coûte vraiment, porte à porte : voiture, train, avion ou covoiturage, en € et en CO₂.">
   <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+CjxyZWN0IHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjIyIiBmaWxsPSIjMTk3NmQyIi8+CjxwYXRoIGQ9Ik00OCAxNCBWODIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1vcGFjaXR5PSIwLjYiLz4KPHBhdGggZD0iTTI5IDIxIEg2NyBMODEgMzIgTDY3IDQzIEgyOSBaIiBmaWxsPSIjZmZkNzVlIiBzdHJva2U9IiNmZmQ3NWUiIHN0cm9rZS13aWR0aD0iNC41IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjx0ZXh0IHg9IjQ4IiB5PSIzOSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjMTk3NmQyIj7igqw8L3RleHQ+CjxwYXRoIGQ9Ik02NCA1MiBIMzIgTDIwIDYxIEwzMiA3MCBINjQgWiIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjQuNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K">
   <!-- PWA : installable sur l'écran d'accueil -->
@@ -391,48 +391,6 @@
 
     .footer { text-align: center; font-size: 10.5px; color: #90a4ae; margin-top: 18px; line-height: 1.6; }
 
-    /* Pop-up : choix du site de réservation train */
-    .modal-back {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(15,25,40,0.45);
-      z-index: 2000;
-      align-items: center; justify-content: center;
-      padding: 20px;
-    }
-    .modal-back.open { display: flex; }
-    .modal {
-      background: #fff;
-      border-radius: 18px;
-      padding: 20px;
-      width: 100%; max-width: 400px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-    }
-    .modal-title { font-size: 16px; font-weight: 800; color: #1a2433; }
-    .modal-sub { font-size: 12px; color: #607080; margin: 4px 0 14px; line-height: 1.4; }
-    .site-btn {
-      display: block;
-      text-decoration: none;
-      border: 1.5px solid #dbe3ec;
-      border-radius: 12px;
-      padding: 11px 14px;
-      margin-bottom: 8px;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .site-btn:hover { border-color: #1976d2; background: #eef6ff; }
-    .site-name { font-size: 14px; font-weight: 700; color: #1a2433; }
-    .site-desc { font-size: 11px; color: #607080; margin-top: 2px; line-height: 1.4; }
-    .modal-close {
-      width: 100%;
-      margin-top: 6px;
-      padding: 10px;
-      background: none; border: none;
-      font-family: inherit;
-      font-size: 13px; font-weight: 700;
-      color: #607080;
-      cursor: pointer;
-    }
-    .modal-close:hover { color: #1a2433; }
   </style>
 </head>
 <body>
@@ -543,16 +501,6 @@
   </div>
 
   <div class="footer">Futéroute est indépendant : aucun mode de transport ne nous paie pour gagner.<br>Comparaison honnête, porte à porte.</div>
-
-  <!-- Pop-up : où réserver son billet de train -->
-  <div class="modal-back" id="trainModal" onclick="if (event.target === this) closeTrainModal()">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trainModalTitle">
-      <div class="modal-title" id="trainModalTitle">Voir les billets de train</div>
-      <div class="modal-sub" id="trainModalSub">—</div>
-      <div id="trainModalLinks"></div>
-      <button type="button" class="modal-close" onclick="closeTrainModal()">Fermer</button>
-    </div>
-  </div>
 
   <input type="hidden" id="apiKey" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImY1NjRiM2M4Yjc0OTQ0ZDlhNmNjM2FiOWQzNjFhNTE2IiwiaCI6Im11cm11cjY0In0=">
 </div>
@@ -1170,7 +1118,7 @@ function renderResults() {
     meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
     co2: d.trainCO2 * arMult,
     confort: COMFORT_TRAIN,
-    cta: { txt: 'Voir les billets de train ›', modal: true },
+    cta: { txt: 'Voir les billets sur SNCF Connect ›', url: sncfConnectUrl(d.from.city, d.to.city) },
   });
   if (d.plane) {
     options.push({
@@ -1226,9 +1174,7 @@ function renderResults() {
       '<div class="mode-price">' +
         '<div class="pp">' + o.ppLabel + '<span class="u">/pers.</span></div>' +
         '<div class="tot">' + o.tot + '</div>' +
-        (o.cta ? (o.cta.modal
-          ? '<a class="mode-cta" href="#" onclick="openTrainModal(); return false;">' + o.cta.txt + '</a>'
-          : '<a class="mode-cta" href="' + o.cta.url + '" target="_blank" rel="noopener">' + o.cta.txt + '</a>') : '') +
+        (o.cta ? '<a class="mode-cta" href="' + o.cta.url + '" target="_blank" rel="noopener">' + o.cta.txt + '</a>' : '') +
       '</div>';
     wrap.appendChild(card);
   });
@@ -1236,45 +1182,23 @@ function renderResults() {
   document.getElementById('results').style.display = 'block';
 }
 
-// ---------- Pop-up billets de train ----------
-// Sites retenus (volontairement peu nombreux) : SNCF Connect (l'officiel),
-// Trainline et Omio (comparateurs multi-compagnies), Trenitalia (concurrent
-// direct de la SNCF sur Paris–Lyon et vers l'Italie). Aucun de ces sites
-// n'expose d'URL publique de recherche préremplie (formats testés → 404),
-// on ouvre donc leur accueil et on rappelle le trajet dans la pop-up.
-function openTrainModal() {
-  if (!lastData) return;
-  const from = lastData.from.city, to = lastData.to.city;
-  const sites = [
-    { name: 'SNCF Connect', desc: 'Le site officiel SNCF (TGV, Intercités, TER)', url: 'https://www.sncf-connect.com/' },
-    { name: 'Trainline', desc: 'Compare SNCF et concurrents (Eurostar, Renfe…)', url: 'https://www.thetrainline.com/fr' },
-    { name: 'Omio', desc: 'Trains, bus et avions en une seule recherche', url: 'https://www.omio.fr/' },
-    { name: 'Trenitalia France', desc: 'Souvent moins cher sur Paris–Lyon et vers l\'Italie', url: 'https://www.trenitalia.com/fr.html' },
-  ];
-  document.getElementById('trainModalSub').textContent =
-    from + ' → ' + to + (dateChoisie() ? ' · ' + dateFr() : '') + ' — à ressaisir sur le site choisi';
-  const wrap = document.getElementById('trainModalLinks');
-  wrap.innerHTML = '';
-  sites.forEach(s => {
-    const a = document.createElement('a');
-    a.className = 'site-btn';
-    a.href = s.url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'site-name';
-    nameDiv.textContent = s.name + ' ›';
-    const descDiv = document.createElement('div');
-    descDiv.className = 'site-desc';
-    descDiv.textContent = s.desc;
-    a.appendChild(nameDiv);
-    a.appendChild(descDiv);
-    wrap.appendChild(a);
-  });
-  document.getElementById('trainModal').classList.add('open');
+// SNCF Connect accepte un paramètre ?userInput= qui préremplit sa barre de
+// recherche (repéré en observant la page /home/search) : le lien "Voir les
+// billets" ouvre directement les résultats prêts à lancer, au lieu de la
+// page d'accueil.
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function sncfConnectUrl(from, to) {
+  const type = resultMode === 'ar' ? 'aller-retour' : 'aller-simple';
+  const iso = dateChoisie();
+  let datePart = '';
+  if (iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    datePart = ', Le ' + d + ' ' + MOIS_FR[m - 1];
+  }
+  const pers = pax + ' voyageur' + (pax > 1 ? 's' : '');
+  const userInput = from + ' - ' + to + ', ' + type + datePart + ', ' + pers;
+  return 'https://www.sncf-connect.com/home/search?userInput=' + encodeURIComponent(userInput);
 }
-function closeTrainModal() { document.getElementById('trainModal').classList.remove('open'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrainModal(); });
 
 // ---------- Divers ----------
 function setLoading(on) {
