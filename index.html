@@ -81,17 +81,53 @@
     }
     input[type="text"], input[type="number"], input[type="date"], select {
       width: 100%;
-      padding: 10px 12px;
-      border: 1.5px solid #dbe3ec;
-      border-radius: 12px;
-      background: #fbfcfe;
+      padding: 8px 11px;
+      border: 2.5px solid #1976d2;
+      border-radius: 10px;
+      background: #ffffff;
       font-size: 15px;
+      font-weight: 600;
       font-family: inherit;
-      color: #1a2433;
+      color: #0f1729;
       outline: none;
+      box-shadow: 0 2px 6px rgba(25,118,210,0.15);
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    input:focus, select:focus { border-color: #2196f3; box-shadow: 0 0 0 3px rgba(33,150,243,0.12); }
+    input:focus, select:focus { border-color: #0d47a1; box-shadow: 0 0 0 3px rgba(25,118,210,0.2); }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23607080'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center;
+      padding-right: 28px;
+      background-color: #ffffff;
+    }
+    /* Section carburant (voiture) : accent orange, comme sur Tratjet. */
+    .section-carburant { background: #fff6e6; border: 1.5px solid #f3d999; border-radius: 14px; padding: 4px 14px 14px; margin-top: 8px; }
+    .section-carburant input[type="text"], .section-carburant input[type="number"], .section-carburant select {
+      border-color: #e2971a;
+      box-shadow: 0 2px 6px rgba(226,151,26,0.18);
+    }
+    .section-carburant input[type="text"]:focus, .section-carburant input[type="number"]:focus, .section-carburant select:focus {
+      border-color: #c9760a;
+      box-shadow: 0 0 0 3px rgba(226,151,26,0.22);
+    }
+    .section-carburant .stepper-btn {
+      border-color: #e2971a;
+      color: #c9760a;
+      box-shadow: 0 2px 6px rgba(226,151,26,0.18);
+    }
+    .section-carburant .stepper-btn:hover { background: #fff1d6; }
+    /* Section itinéraire (départ/arrivée/date/voyageurs) : panneau teinté bleu,
+       comme la section Départ/Destination de Tratjet. */
+    .section-itineraire {
+      background: #eaf3ff;
+      border: 1.5px solid #bcd9f7;
+      border-radius: 14px;
+      padding: 14px 14px 4px;
+      margin-bottom: 12px;
+    }
+    .section-itineraire .two-cols { margin-top: 4px; }
 
     .autocomplete-wrap { position: relative; }
     .autocomplete-wrap input.place-input { padding-right: 36px; }
@@ -260,7 +296,7 @@
     .btn {
       width: 100%;
       padding: 14px;
-      background: linear-gradient(135deg, #2196f3, #1565c0);
+      background: linear-gradient(135deg, #2196f3, #0d47a1);
       color: #fff;
       font-size: 15px;
       font-weight: 700;
@@ -269,7 +305,7 @@
       cursor: pointer;
       font-family: inherit;
       letter-spacing: 0.02em;
-      box-shadow: 0 4px 14px rgba(33,150,243,0.35);
+      box-shadow: 0 6px 18px rgba(13,71,161,0.4);
       transition: opacity 0.15s, transform 0.1s;
     }
     .btn:hover { opacity: 0.92; }
@@ -406,37 +442,39 @@
     <div class="card-title">Votre trajet</div>
     <div class="card-hint">Plus vous êtes précis dans votre itinéraire, plus les résultats le seront 😉</div>
 
-    <div class="points-wrap">
-      <div class="field">
-        <label>Départ</label>
-        <div class="autocomplete-wrap">
-          <input type="text" id="depart" class="place-input" placeholder="Ville ou adresse de départ" autocomplete="off" oninput="onPlaceInput(this)">
-          <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
-          <div class="autocomplete-list"></div>
+    <div class="section-itineraire">
+      <div class="points-wrap">
+        <div class="field">
+          <label>Départ</label>
+          <div class="autocomplete-wrap">
+            <input type="text" id="depart" class="place-input" placeholder="Ville ou adresse de départ" autocomplete="off" oninput="onPlaceInput(this)">
+            <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
+            <div class="autocomplete-list"></div>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label>Arrivée</label>
-        <div class="autocomplete-wrap">
-          <input type="text" id="arrivee" class="place-input" placeholder="Ville ou adresse d'arrivée" autocomplete="off" oninput="onPlaceInput(this)">
-          <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
-          <div class="autocomplete-list"></div>
+        <div class="field">
+          <label>Arrivée</label>
+          <div class="autocomplete-wrap">
+            <input type="text" id="arrivee" class="place-input" placeholder="Ville ou adresse d'arrivée" autocomplete="off" oninput="onPlaceInput(this)">
+            <button type="button" class="fav-star" title="Enregistrer en favori">☆</button>
+            <div class="autocomplete-list"></div>
+          </div>
         </div>
+        <button type="button" class="swap-btn" id="swapBtn" onclick="swapPlaces()" aria-label="Inverser départ et arrivée">⇅</button>
       </div>
-      <button type="button" class="swap-btn" id="swapBtn" onclick="swapPlaces()" aria-label="Inverser départ et arrivée">⇅</button>
-    </div>
 
-    <div class="two-cols">
-      <div class="field">
-        <label>Date (indicatif)</label>
-        <input type="date" id="dateTrajet">
-      </div>
-      <div class="field field-center">
-        <label>Voyageurs</label>
-        <div class="stepper-line">
-          <button type="button" class="stepper-btn" id="paxMinus" aria-label="Moins de voyageurs">−</button>
-          <div class="pax-val" id="paxVal">2</div>
-          <button type="button" class="stepper-btn" id="paxPlus" aria-label="Plus de voyageurs">+</button>
+      <div class="two-cols">
+        <div class="field">
+          <label>Date (indicatif)</label>
+          <input type="date" id="dateTrajet">
+        </div>
+        <div class="field field-center">
+          <label>Voyageurs</label>
+          <div class="stepper-line">
+            <button type="button" class="stepper-btn" id="paxMinus" aria-label="Moins de voyageurs">−</button>
+            <div class="pax-val" id="paxVal">2</div>
+            <button type="button" class="stepper-btn" id="paxPlus" aria-label="Plus de voyageurs">+</button>
+          </div>
         </div>
       </div>
     </div>
@@ -453,10 +491,10 @@
     </div>
 
     <button type="button" class="car-toggle" id="carToggle" onclick="toggleCar()">
-      <span>🚗 Ta voiture (pour un calcul précis)</span>
+      <span>🚗 Votre voiture (pour un calcul précis)</span>
       <span class="chev">▼</span>
     </button>
-    <div class="car-body" id="carBody">
+    <div class="car-body section-carburant" id="carBody">
       <div class="two-cols">
         <div class="field">
           <label>Carburant</label>
@@ -497,7 +535,7 @@
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
-      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train : grille tarifaire officielle SNCF en open data (2ᵉ classe, Tarif Normal sans carte, TGV INOUI + OUIGO) quand le trajet y figure, sinon fourchette estimée. Avion &amp; bus : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
+      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet vous coûte en plus, pas le coût moyen d'un km en général. Train : grille tarifaire officielle SNCF en open data (2ᵉ classe, Tarif Normal sans carte, TGV INOUI + OUIGO) quand le trajet y figure, sinon fourchette estimée. Avion &amp; bus : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
     </div>
   </div>
 
@@ -1190,7 +1228,7 @@ function renderResults() {
 
   const options = [];
   options.push({
-    id: 'voiture', ico: '🚗', name: d.isElec ? 'Ta voiture (électrique)' : 'Ta voiture',
+    id: 'voiture', ico: '🚗', name: d.isElec ? 'Votre voiture (électrique)' : 'Votre voiture',
     pp: d.carVehicule / pax * arMult, ppLabel: fmtEur(d.carVehicule / pax * arMult),
     tot: fmtEur(d.carVehicule * arMult) + ' à ' + pax,
     doorH: d.route.dureeH,
