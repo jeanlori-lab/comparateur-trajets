@@ -961,12 +961,6 @@ function dateFr() {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
-function dateDot() {
-  const iso = dateChoisie();
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}.${m}.${y}`;
-}
 
 // ---------- Itinéraire voiture (ORS, avec repli si le point ne "snap" pas ----------
 // sur le réseau routier : grandes villes aux limites communales étendues en mer
@@ -1074,14 +1068,17 @@ async function comparer() {
     const covoitPP = Math.max(5, route.distKm * covoitRate);
     const covoitCO2 = route.distKm * 0.218 / 3;
 
-    // --- Bus (Flixbus, BlaBlaBus) ---
-    // Nettement moins cher que le train (moins de contraintes d'infra),
-    // mais plus lent (vitesse moyenne ~75 km/h, arrêts compris) et peu
-    // sensible au yield management par rapport au train/avion.
-    const busKm = crowKm * 1.15;
-    const busBase = 5 + busKm * 0.045;
-    const busH = busKm / 75 + 0.5;
-    const bus = { hRoute: busH, pMin: Math.max(4, busBase * 0.75 * fDate), pMax: busBase * 1.35 * fDate };
+    // --- Bus (BlaBlaBus) ---
+    // Suit le même itinéraire routier que la voiture (distance réelle, pas
+    // à vol d'oiseau), mais plus lent (arrêts intermédiaires, vitesse
+    // moyenne ~70 km/h). Moins cher que le train en général, mais ces
+    // transporteurs pratiquent un vrai yield management (BlaBlaBus/Flixbus
+    // sont connus pour ça) : la fourchette réagit à la date comme le train.
+    const busKm = route.distKm;
+    const busBase = 8 + busKm * 0.06;
+    const fBus = 1 + (fDate - 1) * 1.3;
+    const busH = busKm / 70 + 0.5;
+    const bus = { hRoute: busH, pMin: Math.max(6, busBase * 0.75 * fBus), pMax: busBase * 1.4 * fBus };
     const busCO2 = crowKm * 0.03; // ≈ 30 g CO2/km/pers., autocars très efficaces au taux de remplissage moyen
 
     lastData = { from, to, route, crowKm, isElec, carFuel, carToll, carVehicule, carCO2vehicule, train, trainDoorH, trainCO2, plane, covoitPP, covoitCO2, bus, busCO2 };
@@ -1169,10 +1166,7 @@ function renderResults() {
     meta: 'estimation · ' + fmtH(d.bus.hRoute) + ' de trajet (aller) · ≈ ' + fmtH(d.bus.hRoute + 0.3) + ' porte à porte',
     co2: d.busCO2 * arMult,
     confort: COMFORT_BUS,
-    cta: [
-      { txt: 'Voir sur Blablacar Bus ›', url: 'https://www.blablacar.fr/search?fn=' + encodeURIComponent(d.from.city) + '&tn=' + encodeURIComponent(d.to.city) + (dateChoisie() ? '&db=' + encodeURIComponent(dateChoisie()) : '') + '&transport_type=BUS' },
-      { txt: 'Voir sur Flixbus ›', url: 'https://shop.flixbus.fr/search?route=' + encodeURIComponent(d.from.city + '-' + d.to.city) + (dateChoisie() ? '&rideDate=' + encodeURIComponent(dateDot()) : '') + '&adult=' + pax + '&_locale=fr' },
-    ],
+    cta: { txt: 'Voir sur Blablacar Bus ›', url: 'https://www.blablacar.fr/search?fn=' + encodeURIComponent(d.from.city) + '&tn=' + encodeURIComponent(d.to.city) + (dateChoisie() ? '&db=' + encodeURIComponent(dateChoisie()) : '') + '&transport_type=BUS' },
   });
 
   // Score pondéré : ratio au meilleur sur chaque critère (1 = meilleur).
