@@ -660,7 +660,7 @@
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
-      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet vous coûte en plus, pas le coût moyen d'un km en général. Train : grille tarifaire officielle SNCF en open data (2ᵉ classe, Tarif Normal sans carte, TGV INOUI + OUIGO) quand le trajet y figure, sinon fourchette estimée. Avion &amp; bus : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
+      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet vous coûte en plus, pas le coût moyen d'un km en général. Train : grille tarifaire officielle SNCF en open data (2ᵉ classe, Tarif Normal sans carte, TGV INOUI + OUIGO) quand le trajet y figure, sinon fourchette estimée. Avion : prix réels récents (Travelpayouts) quand disponibles, sinon fourchette estimée ajustée à la date. Bus : fourchette estimée, ajustée à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
     </div>
   </div>
 
@@ -1250,6 +1250,30 @@ async function fetchTrainGrille(fromCity, toCity) {
   }
 }
 
+// ---------- Prix avion réel : Worker Cloudflare (Travelpayouts) ----------
+// Le Worker résout les villes en codes IATA et interroge l'API Travelpayouts
+// (token gardé secret côté serveur) ; il renvoie { found, min, max } en EUR.
+// Prix mis en cache par Travelpayouts (billets vus récemment par leurs
+// utilisateurs), donc « très proches » plutôt que live à la seconde.
+const FLIGHT_WORKER_URL = 'https://futeroute.jeanlorilleux37.workers.dev/';
+async function fetchFlightPrice(fromCity, toCity, iso) {
+  const p = new URLSearchParams({ from: fromCity, to: toCity });
+  if (iso) p.set('date', iso);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4500); // ne bloque pas la compa
+  try {
+    const r = await fetch(FLIGHT_WORKER_URL + '?' + p.toString(), { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d.found) return null;
+    return { pMin: d.min, pMax: d.max };
+  } catch (e) {
+    return null; // Worker hors service, timeout, hors ligne…
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------- Utilitaires ----------
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, toRad = d => d * Math.PI / 180;
@@ -1418,7 +1442,17 @@ async function comparer() {
       const doorH = volH + 3.4; // navettes aéroports + 2h avance + récup bagages
       const base = 28 + crowKm * 0.055;
       const fPlane = 1 + (fDate - 1) * 1.6;
-      plane = { volH, doorH, pMin: base * 0.85 * fPlane, pMax: base * 1.7 * fPlane, co2: crowKm * 1.1 * 0.26 };
+      plane = { volH, doorH, pMin: base * 0.85 * fPlane, pMax: base * 1.7 * fPlane, co2: crowKm * 1.1 * 0.26, source: 'estimation' };
+      // Prix réel via le Worker (Travelpayouts, mis en cache par leurs
+      // utilisateurs sur les derniers jours) : on l'utilise s'il répond,
+      // sinon on garde l'estimation ci-dessus (aéroport/pays non couvert,
+      // Worker hors service, timeout…).
+      const reel = await fetchFlightPrice(from.city, to.city, dateChoisie());
+      if (reel) {
+        plane.pMin = reel.pMin;
+        plane.pMax = reel.pMax;
+        plane.source = 'reel';
+      }
     }
 
     // --- Covoiturage ---
@@ -1500,7 +1534,7 @@ function renderResults() {
     options.push({
       id: 'avion', ico: '✈️', name: 'Avion',
       pp: (d.plane.pMin + d.plane.pMax) / 2 * arMult, ppLabel: fmtEurRange(d.plane.pMin * arMult, d.plane.pMax * arMult),
-      tot: 'estimation, hors bagages',
+      tot: (d.plane.source === 'reel' ? 'prix réels récents · ' : 'estimation · ') + 'hors bagages',
       doorH: d.plane.doorH,
       meta: 'Vol ' + fmtH(d.plane.volH) + ' (aller) · ≈ ' + fmtH(d.plane.doorH) + ' porte à porte (navettes + 2h aéroport)',
       co2: d.plane.co2 * arMult,
