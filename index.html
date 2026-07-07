@@ -118,6 +118,126 @@
       box-shadow: 0 2px 6px rgba(226,151,26,0.18);
     }
     .section-carburant .stepper-btn:hover { background: #fff1d6; }
+
+    /* Roulette de consommation (comme sur Tratjet) : réglette glissable sur
+       mobile, flèches +/- sur ordinateur. */
+    .conso-line { display: flex; align-items: center; gap: 6px; justify-content: space-between; width: 170px; margin: 4px auto 0; }
+    .conso-line .conso-roulette { flex: 1; }
+    .conso-value {
+      flex-shrink: 0;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    #consoVal.conso-val-input {
+      width: 4ch;
+      padding: 1px 2px;
+      border: none;
+      border-radius: 5px;
+      background: transparent;
+      font-family: inherit;
+      font-size: 18px;
+      font-weight: 600;
+      color: #455060;
+      text-align: center;
+      outline: none;
+      box-shadow: none;
+      cursor: text;
+    }
+    #consoVal.conso-val-input:focus { background: rgba(226,151,26,0.1); box-shadow: none; }
+    #consoVal.conso-val-input[readonly] { cursor: default; }
+    .conso-arrow {
+      width: 32px; height: 32px;
+      flex-shrink: 0;
+      border: 2.5px solid #e2971a;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(226,151,26,0.18);
+      color: #c9760a;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .conso-arrow:hover { background: #fff1d6; }
+    .conso-arrow:active { transform: scale(0.9); }
+    .conso-roulette {
+      position: relative;
+      width: 100%;
+      height: 32px;
+      border: 2.5px solid #e2971a;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(226,151,26,0.18);
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      display: none;
+    }
+    .roulette-viewport {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%);
+    }
+    .conso-roulette:active { cursor: grabbing; }
+    .roulette-track {
+      position: absolute;
+      top: 0; left: 0; height: 100%;
+      width: 4000px;
+      background-image: repeating-linear-gradient(90deg, #f0cf8a 0, #f0cf8a 1px, transparent 1px, transparent 6px);
+      background-repeat: repeat-x;
+      background-position: 0 100%;
+      background-size: 6px 7px;
+    }
+    .rt-major { position: absolute; bottom: 0; width: 0; height: 100%; }
+    .rt-major::before {
+      content: '';
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 1.5px; height: 11px;
+      background: #c9760a;
+      transform: translateX(-50%);
+    }
+    .rt-major span {
+      position: absolute;
+      bottom: 11px; left: 0;
+      transform: translateX(-50%);
+      font-size: 12px;
+      font-weight: 700;
+      color: #8a6417;
+    }
+    .roulette-center {
+      position: absolute;
+      left: 50%; top: 0; bottom: 0;
+      width: 2px;
+      background: #c9760a;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .roulette-center::before, .roulette-center::after {
+      content: '';
+      position: absolute;
+      left: 50%; transform: translateX(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+    }
+    .roulette-center::before { top: -1px; border-top: 5px solid #c9760a; }
+    .roulette-center::after { bottom: -1px; border-bottom: 5px solid #c9760a; }
+    @media (max-width: 480px) {
+      .conso-line .conso-roulette { display: block; }
+      .conso-arrow { display: none; }
+      .conso-value { width: 92px; }
+      .conso-line { justify-content: center; width: auto; margin: 4px 0 0; }
+    }
     /* Section itinéraire (départ/arrivée/date/voyageurs) : panneau teinté bleu,
        comme la section Départ/Destination de Tratjet. */
     .section-itineraire {
@@ -509,10 +629,15 @@
         </div>
         <div class="field field-center">
           <label id="consoLabel">Conso (L/100 km)</label>
-          <div class="stepper-line">
-            <button type="button" class="stepper-btn" id="consoMinus" aria-label="Diminuer la consommation">−</button>
-            <input type="number" id="conso" value="6.5" step="0.1" min="1">
-            <button type="button" class="stepper-btn" id="consoPlus" aria-label="Augmenter la consommation">+</button>
+          <input type="hidden" id="conso" value="6.5">
+          <div class="conso-line">
+            <div class="conso-roulette" id="consoRoulette" role="slider" aria-label="Consommation au 100 km" aria-valuemin="1" aria-valuemax="30" tabindex="0">
+              <div class="roulette-viewport"><div class="roulette-track" id="rouletteTrack"></div></div>
+              <div class="roulette-center"></div>
+            </div>
+            <button type="button" class="conso-arrow" id="consoMinus" aria-label="Diminuer la consommation">−</button>
+            <div class="conso-value"><input type="text" id="consoVal" class="conso-val-input" value="6,5" inputmode="decimal" readonly aria-label="Consommation au 100 km, modifiable"></div>
+            <button type="button" class="conso-arrow" id="consoPlus" aria-label="Augmenter la consommation">+</button>
           </div>
         </div>
       </div>
@@ -810,22 +935,146 @@ async function fetchPrix() {
 function onCarburantChange() {
   const isElec = document.getElementById('carburant').value === 'elec';
   document.getElementById('consoLabel').textContent = isElec ? 'Conso (kWh/100 km)' : 'Conso (L/100 km)';
-  document.getElementById('conso').value = isElec ? 17 : 6.5;
+  consoSet(isElec ? 17 : 6.5, false);
   fetchPrix();
 }
 fetchPrix();
 
-// ---------- Conso (+/- par pas de 0,1) ----------
-function stepConso(delta) {
-  const input = document.getElementById('conso');
-  const min = parseFloat(input.min) || 0;
-  let v = parseFloat(input.value);
-  if (isNaN(v)) v = min;
-  v = Math.max(min, Math.round((v + delta) * 10) / 10);
-  input.value = v.toFixed(1);
+// ---------- Roulette de consommation (1 à 30, pas de 0,1), comme sur Tratjet ----------
+// Petit retour haptique (Android via l'API Vibration ; Safari iOS ne l'expose
+// pas, aucune astuce fiable n'existe côté web pour la remplacer).
+let _lastHaptic = 0;
+function hapticTick() {
+  if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+  const now = Date.now();
+  if (now - _lastHaptic < 20) return;
+  _lastHaptic = now;
+  navigator.vibrate(3);
 }
-document.getElementById('consoMinus').addEventListener('click', () => stepConso(-0.1));
-document.getElementById('consoPlus').addEventListener('click', () => stepConso(0.1));
+// Rester appuyé sur un bouton +/- répète l'action en rafale.
+function holdRepeat(el, action) {
+  if (!el) return;
+  let timeout = null, interval = null;
+  const stop = () => { clearTimeout(timeout); clearInterval(interval); timeout = null; interval = null; };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    action();
+    timeout = setTimeout(() => { interval = setInterval(action, 90); }, 400);
+  });
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('pointercancel', stop);
+}
+const CONSO_MIN = 1, CONSO_MAX = 30, CONSO_PPU = 60; // px par L(ou kWh)/100km
+function consoValeur() { return parseFloat(document.getElementById('conso').value) || 6.5; }
+function consoSet(v, doReset) {
+  v = Math.min(CONSO_MAX, Math.max(CONSO_MIN, Math.round(v * 10) / 10));
+  document.getElementById('conso').value = v.toFixed(1);
+  const disp = document.getElementById('consoVal');
+  if (disp) disp.value = v.toFixed(1).replace('.', ',');
+  const track = document.getElementById('rouletteTrack');
+  const box = document.getElementById('consoRoulette');
+  if (track && box) {
+    const center = box.clientWidth / 2;
+    track.style.transform = `translateX(${center - (v - 1) * CONSO_PPU}px)`;
+  }
+  if (box) box.setAttribute('aria-valuenow', v);
+  if (doReset) hideResults();
+}
+function consoInit() {
+  const track = document.getElementById('rouletteTrack');
+  const box = document.getElementById('consoRoulette');
+  if (!track || !box) return;
+  let html = '';
+  for (let i = CONSO_MIN; i <= CONSO_MAX; i++) {
+    html += `<div class="rt-major" style="left:${(i - 1) * CONSO_PPU}px"><span>${i}</span></div>`;
+  }
+  track.innerHTML = html;
+
+  let dragging = false, startX = 0, startVal = 6.5;
+  let lastX = 0, lastT = 0, velocity = 0, momentumFrame = null;
+  function stopMomentum() {
+    if (momentumFrame) { cancelAnimationFrame(momentumFrame); momentumFrame = null; }
+  }
+  box.addEventListener('pointerdown', e => {
+    stopMomentum();
+    dragging = true; startX = e.clientX; startVal = consoValeur();
+    lastX = e.clientX; lastT = performance.now(); velocity = 0;
+    track.style.transition = 'none';
+    box.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  box.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const now = performance.now();
+    const dt = now - lastT;
+    if (dt >= 8) {
+      const instVel = -(e.clientX - lastX) / CONSO_PPU / dt;
+      const MAX_VEL = 0.03;
+      velocity = velocity * 0.7 + Math.max(-MAX_VEL, Math.min(MAX_VEL, instVel)) * 0.3;
+      lastX = e.clientX; lastT = now;
+    }
+    const prev = consoValeur();
+    consoSet(startVal - (e.clientX - startX) / CONSO_PPU, true);
+    if (consoValeur() !== prev) hapticTick();
+  });
+  function startMomentum() {
+    if (Math.abs(velocity) < 0.008) { track.style.transition = 'transform 0.15s ease-out'; return; }
+    let v = velocity;
+    let lastTime = performance.now();
+    const step = (now) => {
+      const dt = now - lastTime;
+      lastTime = now;
+      v *= Math.pow(0.08, dt / 1000);
+      const prevVal = consoValeur();
+      consoSet(consoValeur() + v * dt, true);
+      if (consoValeur() !== prevVal) hapticTick();
+      const atBound = consoValeur() <= CONSO_MIN || consoValeur() >= CONSO_MAX;
+      if (Math.abs(v) > 0.0008 && !atBound) {
+        momentumFrame = requestAnimationFrame(step);
+      } else {
+        momentumFrame = null;
+        track.style.transition = 'transform 0.15s ease-out';
+      }
+    };
+    momentumFrame = requestAnimationFrame(step);
+  }
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    startMomentum();
+  };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+  box.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft')  { consoSet(consoValeur() - 0.1, true); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { consoSet(consoValeur() + 0.1, true); e.preventDefault(); }
+  });
+  window.addEventListener('resize', () => consoSet(consoValeur(), false));
+  consoSet(consoValeur(), false);
+
+  const minusBtn = document.getElementById('consoMinus');
+  const plusBtn = document.getElementById('consoPlus');
+  holdRepeat(minusBtn, () => consoSet(consoValeur() - 0.1, true));
+  holdRepeat(plusBtn, () => consoSet(consoValeur() + 0.1, true));
+
+  // Valeur éditable à la main, uniquement sur ordinateur (la règle pilote sur mobile).
+  const valInput = document.getElementById('consoVal');
+  const isDesktop = () => window.matchMedia('(min-width: 481px)').matches;
+  const syncEditable = () => { if (valInput) valInput.readOnly = !isDesktop(); };
+  syncEditable();
+  window.addEventListener('resize', syncEditable);
+  if (valInput) {
+    valInput.addEventListener('focus', () => { if (!valInput.readOnly) valInput.select(); });
+    valInput.addEventListener('keydown', e => { if (e.key === 'Enter') valInput.blur(); });
+    valInput.addEventListener('blur', () => {
+      if (valInput.readOnly) return;
+      const parsed = parseFloat(valInput.value.replace(',', '.'));
+      consoSet(isNaN(parsed) ? consoValeur() : parsed, true);
+    });
+  }
+}
+consoInit();
 
 // ---------- Voyageurs ----------
 let pax = 2;
