@@ -1000,6 +1000,19 @@ function facteurDate() {
   if (wd === 5 || wd === 0) f *= 1.10; // vendredi / dimanche
   return f;
 }
+// Resserre une enveloppe de prix [min, max] (ex. grille SNCF, très large) en
+// une fenêtre plus étroite qui GLISSE selon la date : réserver tôt cible le bas
+// de l'enveloppe, la dernière minute le haut. Le facteur date (~0,85 à ~1,43)
+// est ramené à une position t dans [0,1], et on affiche ~45 % de l'enveloppe
+// centrée autour de cette position.
+function fenetreTarifDate(pMin, pMax) {
+  const W = pMax - pMin;
+  if (W <= 0) return [Math.round(pMin), Math.round(pMax)];
+  const t = Math.max(0, Math.min(1, (facteurDate() - 0.85) / 0.58)); // 0 = tôt, 1 = dernière minute
+  const span = W * 0.45;
+  const lo = pMin + t * (W - span);
+  return [Math.round(lo), Math.round(lo + span)];
+}
 function dateFr() {
   const iso = dateChoisie();
   if (!iso) return '';
@@ -1094,12 +1107,15 @@ async function comparer() {
     // sans carte, TGV INOUI + OUIGO). Elle donne le prix mini/maxi réel par
     // couple de gares — bien plus précis que l'estimation, et couvre tous les
     // trajets. On garde la durée calculée ci-dessus (la grille n'a pas les
-    // horaires) et on ne réapplique pas le facteur date : la fourchette
-    // mini/maxi de la grille couvre déjà l'écart anticipation / dernière minute.
+    // horaires). La grille fournit l'enveloppe COMPLÈTE (promo OUIGO anticipée
+    // -> plein tarif TGV dernière minute), trop large pour décider : on en
+    // affiche une fenêtre resserrée qui glisse selon l'anticipation (réserver
+    // tôt cible le bas de l'enveloppe, la dernière minute le haut).
     const grille = await fetchTrainGrille(from.city, to.city);
     if (grille) {
-      train.pMin = grille.pMin;
-      train.pMax = grille.pMax;
+      const [lo, hi] = fenetreTarifDate(grille.pMin, grille.pMax);
+      train.pMin = lo;
+      train.pMax = hi;
       train.source = 'grille SNCF';
     }
     const trainDoorH = train.hRail + 1.0; // accès gares + marge
