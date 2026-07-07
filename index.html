@@ -497,7 +497,7 @@
     <div class="why-note" id="whyNote"></div>
     <div id="modeCards"></div>
     <div class="methodo" id="methodo">
-      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train &amp; avion : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
+      <b>Méthodologie (v1)</b> — Voiture : itinéraire réel + prix carburant temps réel (data.gouv) + péages estimés (~0,09 €/km d'autoroute). On compte le carburant et les péages réels, pas l'usure/décote du véhicule : c'est ce que ce trajet te coûte en plus, pas le coût moyen d'un km en général. Train : grille tarifaire officielle SNCF en open data (2ᵉ classe, Tarif Normal sans carte, TGV INOUI + OUIGO) quand le trajet y figure, sinon fourchette estimée. Avion &amp; bus : fourchettes estimées, ajustées à la date choisie (réserver tôt = moins cher, dernière minute et vendredi/dimanche = plus cher) — à vérifier via les liens. Covoiturage : barème au km dégressif type Blablacar. Avion : temps porte à porte incluant trajets aéroport + 2h d'avance. CO₂ : facteurs ADEME.
     </div>
   </div>
 
@@ -918,6 +918,51 @@ function lookupTrainPair(cityA, cityB) {
   return null;
 }
 
+// ---------- Prix train : grille tarifaire officielle SNCF (open data) ----------
+// Jeu de données « Tarifs TGV INOUI et OUIGO » (licence ODbL, API Opendatasoft,
+// même hôte que rien d'autre ici mais même principe que le prix carburant).
+// Les gares y sont nommées en MAJUSCULES sans accents (ex. « PARIS GARE DE
+// LYON », « LYON PART DIEU »). On convertit la ville en préfixe de gare et on
+// matche toutes ses gares d'un coup, dans les deux sens.
+const SNCF_TARIFS_URL = 'https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tarifs-tgv-inoui-ouigo/records';
+function stationPrefix(city) {
+  let s = normCity(city);                     // minuscules, sans accents
+  if (!s) return '';
+  s = s.replace(/[-''’]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.startsWith('saint ')) s = 'st ' + s.slice(6); // gares SNCF : « ST … »
+  return s.toUpperCase();
+}
+async function fetchTrainGrille(fromCity, toCity) {
+  const a = stationPrefix(fromCity), b = stationPrefix(toCity);
+  if (!a || !b || a === b) return null;
+  // 2e classe, Tarif Normal (sans carte de réduction) : le prix que paie
+  // tout le monde. Couvre TGV INOUI et OUIGO (OUIGO n'a pas de cartes).
+  const where = 'classe="2" and profil_tarifaire="Tarif Normal" and '
+    + '((gare_origine like "' + a + '*" and gare_destination like "' + b + '*") '
+    + 'or (gare_origine like "' + b + '*" and gare_destination like "' + a + '*"))';
+  const url = SNCF_TARIFS_URL + '?limit=100&where=' + encodeURIComponent(where);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4500); // ne bloque pas la compa
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const rows = d.results || [];
+    if (!rows.length) return null;
+    let pMin = Infinity, pMax = 0;
+    rows.forEach(row => {
+      if (typeof row.prix_minimum === 'number') pMin = Math.min(pMin, row.prix_minimum);
+      if (typeof row.prix_maximum === 'number') pMax = Math.max(pMax, row.prix_maximum);
+    });
+    if (!isFinite(pMin) || pMax <= 0) return null;
+    return { pMin, pMax, n: rows.length };
+  } catch (e) {
+    return null; // hors ligne, timeout, CORS… : on retombe sur l'estimation
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------- Utilitaires ----------
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, toRad = d => d * Math.PI / 180;
@@ -1034,6 +1079,7 @@ async function comparer() {
     // réservation (la date est choisie dans le formulaire) et le jour de la
     // semaine (vendredi/dimanche = chassé-croisé, plus cher).
     const fDate = facteurDate();
+    // Durée + prix de repli : table de liaisons connues sinon estimation.
     const pair = lookupTrainPair(from.city, to.city);
     let train;
     if (pair) {
@@ -1043,6 +1089,18 @@ async function comparer() {
       const railKm = crowKm * 1.25;
       const base = 8 + railKm * 0.095;
       train = { hRail: railKm / 135 + 0.6, pMin: base * 0.75 * fDate, pMax: base * 1.35 * fDate, source: 'estimation' };
+    }
+    // Prix officiel : grille tarifaire open data SNCF (2e classe, Tarif Normal
+    // sans carte, TGV INOUI + OUIGO). Elle donne le prix mini/maxi réel par
+    // couple de gares — bien plus précis que l'estimation, et couvre tous les
+    // trajets. On garde la durée calculée ci-dessus (la grille n'a pas les
+    // horaires) et on ne réapplique pas le facteur date : la fourchette
+    // mini/maxi de la grille couvre déjà l'écart anticipation / dernière minute.
+    const grille = await fetchTrainGrille(from.city, to.city);
+    if (grille) {
+      train.pMin = grille.pMin;
+      train.pMax = grille.pMax;
+      train.source = 'grille SNCF';
     }
     const trainDoorH = train.hRail + 1.0; // accès gares + marge
     const trainCO2 = crowKm * 1.2 * 0.0035;
@@ -1130,7 +1188,7 @@ function renderResults() {
     pp: (d.train.pMin + d.train.pMax) / 2 * arMult, ppLabel: fmtEurRange(d.train.pMin * arMult, d.train.pMax * arMult),
     tot: (d.train.source === 'estimation' ? 'estimation · ' : '') + fmtEurRange(d.train.pMin * pax * arMult, d.train.pMax * pax * arMult) + ' à ' + pax,
     doorH: d.trainDoorH,
-    meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte',
+    meta: fmtH(d.train.hRail) + ' de train (aller) · ≈ ' + fmtH(d.trainDoorH) + ' porte à porte' + (d.train.source === 'grille SNCF' ? ' · prix grille officielle SNCF (2ᵉ cl.)' : ''),
     co2: d.trainCO2 * arMult,
     confort: COMFORT_TRAIN,
     cta: { txt: 'Voir les billets sur SNCF Connect ›', url: sncfConnectUrl(d.from.city, d.to.city) },
